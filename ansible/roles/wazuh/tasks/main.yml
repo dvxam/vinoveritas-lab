@@ -4,6 +4,8 @@
 # only checks that the services are up. To reinstall: run the assistant with -u, delete
 # wazuh-install-files.tar, run the playbook again.
 
+# No cache_valid_time: the cloud image has empty package lists but a recent /var/lib/apt/lists,
+# which Ansible takes for a fresh cache, so it skipped the update and found no gnupg
 - name: Install the tools the assistant needs
   ansible.builtin.apt:
     name:
@@ -12,7 +14,6 @@
       - gnupg
     state: present
     update_cache: true
-    cache_valid_time: 3600
 
 # Wazuh publishes no checksum for this script: it comes over HTTPS from packages.wazuh.com
 - name: Download the Wazuh installation assistant {{ wazuh_version }}
