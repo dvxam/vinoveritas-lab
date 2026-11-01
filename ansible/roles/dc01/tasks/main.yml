@@ -46,3 +46,14 @@
       } else {
         $Ansible.Changed = $false
       }
+
+- name: Add the machines outside the domain to DNS
+  community.windows.win_dns_record:
+    zone: "{{ dc01_domain }}"
+    name: "{{ item.name }}"
+    type: A
+    value: "{{ item.ip }}"
+    state: present
+  loop: "{{ dc01_dns_records }}"
+  loop_control:
+    label: "{{ item.name }} → {{ item.ip }}"

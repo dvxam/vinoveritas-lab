@@ -28,21 +28,45 @@
 # The default route still goes through the temporary nat link: without this route, traffic to
 # the other zones (DC01...) would leave by nat instead of crossing pfSense. Merged by netplan
 # with the cloud-init file (same card name, card0 = seg-admin).
-- name: Route to the other zones through pfSense
+# DNS: DC01, as in the IP plan of Mission 2 (F12), with the domain as search suffix: `ssh ovs`
+# asks DC01 for ovs.vinoveritas.local and gets the management address (10.50.10.2).
+- name: Route to the other zones through pfSense, DNS on DC01
   ansible.builtin.copy:
     dest: /etc/netplan/60-lab-zones.yaml
     mode: "0600"
     content: |
-      # Managed by Ansible (roles/admin). The other zones of the lab, through pfSense.
+      # Managed by Ansible (roles/admin). The other zones of the lab through pfSense, DNS on DC01.
       network:
         version: 2
         ethernets:
           card0:
             routes:
               - to: 10.50.0.0/16
-                via: 10.50.10.1
+                via: {{ admin_zones_gateway }}
+            nameservers:
+              addresses: [{{ admin_dns }}]
+              search: [{{ admin_domain }}]
   register: admin_zones_route
 
-- name: Apply the route
+# netplan adds lists up, it cannot remove the nat DNS of the cloud-init file: a networkd drop-in
+# empties it, otherwise libvirt's dnsmasq keeps answering (with the nat addresses of the VMs)
+- name: Create the drop-in directory of the nat card
+  ansible.builtin.file:
+    path: /etc/systemd/network/10-netplan-card1.network.d
+    state: directory
+    mode: "0755"
+
+- name: No DNS on the nat card
+  ansible.builtin.copy:
+    dest: /etc/systemd/network/10-netplan-card1.network.d/no-dns.conf
+    mode: "0644"
+    content: |
+      # Managed by Ansible (roles/admin). DNS is DC01, on the ADMIN card (60-lab-zones.yaml).
+      [Network]
+      DNS=
+      Domains=
+  register: admin_nat_dns
+
+- name: Apply the network settings
   ansible.builtin.command: netplan apply
-  when: admin_zones_route.changed
+  when: admin_zones_route.changed or admin_nat_dns.changed

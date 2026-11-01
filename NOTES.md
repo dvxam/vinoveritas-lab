@@ -190,6 +190,13 @@
 - Tout est défait à la fin ; rien ne sort du labo. Pas de verrouillage de compte (4740) : aucune stratégie de verrouillage n'est encore définie (GPO, mission 4).
 - Vérifié : syntaxe bash. Pas lancé.
 
+### 23. DNS d'ADMIN01 sur DC01
+- Constat : ADMIN01 interrogeait le dnsmasq de libvirt sur le lien nat (`192.168.206.1`), qui répond avec les adresses nat des VM (`ovs` → `192.168.206.166`), au lieu de DC01 comme le prévoit le plan d'adressage de la mission 2 (F12).
+- Rôle `dc01` : enregistrements A pour les machines hors domaine, à leur adresse dans les zones : `pfsense` `10.50.10.1`, `ovs` `10.50.10.2` (mgmt), `admin01` `10.50.10.10`, `siem01` `10.50.20.30`. Vérifiés par `verify.yml`.
+- Rôle `admin` : DNS `10.50.20.10` et suffixe `vinoveritas.local` sur la carte ADMIN (`60-lab-zones.yaml`) ; DNS de la carte nat vidé par une surcharge networkd (`10-netplan-card1.network.d/no-dns.conf`), car netplan additionne les listes et ne peut pas retirer celui de cloud-init (essayé dans un dossier temporaire).
+- Lancé : `dc01.yml` (depuis ADMIN01) puis `admin01.yml` (depuis le Mac). Vérifié sur ADMIN01 : `ovs` → `10.50.10.2`, `siem01` et `pfsense` résolus, `apt update` passe (DC01 → pfSense). Second passage d'`admin01.yml` : `changed=0`.
+- Reste : ADMIN01 n'a pas de clé SSH, donc `ssh ovs` depuis ADMIN01 est refusé ; SIEM01 a encore le DNS du lien nat (même correction à faire dans le rôle `wazuh`).
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).

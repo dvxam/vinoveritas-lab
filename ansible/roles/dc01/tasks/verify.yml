@@ -34,3 +34,25 @@
   loop: "{{ dc01_dns.output }}"
   loop_control:
     label: "{{ item.name }}"
+
+- name: Resolve the machines outside the domain
+  ansible.windows.win_powershell:
+    parameters:
+      Names: "{{ dc01_dns_records | map(attribute='name') | list }}"
+    script: |
+      param([string[]]$Names)
+      $Ansible.Changed = $false
+      foreach ($n in $Names) {
+        $r = Resolve-DnsName "$n.{{ dc01_domain }}" -Type A -DnsOnly -ErrorAction SilentlyContinue
+        [pscustomobject]@{ name = $n; ip = [string]($r | Select-Object -First 1).IPAddress }
+      }
+  register: dc01_records
+
+- name: Each machine outside the domain has its address in the zones
+  ansible.builtin.assert:
+    that: (dc01_records.output | selectattr('name', 'equalto', item.name) | first).ip == item.ip
+    fail_msg: "{{ item.name }}.{{ dc01_domain }} : {{ (dc01_records.output | selectattr('name', 'equalto', item.name) | first).ip | default('absent') }}, attendu {{ item.ip }}"
+    success_msg: "{{ item.name }}.{{ dc01_domain }} → {{ item.ip }}"
+  loop: "{{ dc01_dns_records }}"
+  loop_control:
+    label: "{{ item.name }}"
