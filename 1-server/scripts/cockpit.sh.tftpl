@@ -16,8 +16,18 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 # No recommends: the "cockpit" metapackage would pull NetworkManager, which must not
 # take over the network (systemd-networkd). Only the base and the VM page.
-apt-get install -y --no-install-recommends \
+# From backports, as Cockpit advises for Debian (newer than Debian 13's version 337).
+. /etc/os-release
+apt-get install -y --no-install-recommends -t "$VERSION_CODENAME-backports" \
   cockpit-ws cockpit-bridge cockpit-system cockpit-machines
+
+log "User D-Bus in the user managers already running"
+# cockpit-bridge pulls dbus-user-session, but a user manager started before it (debian's,
+# kept alive by SSH sessions) does not start its bus socket until it restarts. Without
+# that bus, the Machines page drops the session (cockpit-bridge crashes on the second try).
+loginctl list-users --no-legend | while read -r uid user _; do
+  runuser -u "$user" -- env XDG_RUNTIME_DIR="/run/user/$uid" systemctl --user start dbus.socket || true
+done
 
 log "Listen on $ADDRESS:$PORT only (tunnel), not on the public address"
 # FreeBind: the socket starts even if wg0 is not up yet at boot

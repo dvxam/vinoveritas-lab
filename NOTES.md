@@ -79,6 +79,12 @@
 - Connexion avec le mot de passe de `debian`, qui n'en avait pas : à définir à la main (`sudo passwd debian`), pour ne pas mettre de secret dans l'état OpenTofu. SSH refuse les mots de passe (`PasswordAuthentication no`, vérifié), donc ce mot de passe n'ouvre pas SSH.
 - Règle : Cockpit sert à regarder et à démarrer ou arrêter les VM ; créer ou modifier une VM reste le rôle de `2-lab/`.
 - Vérifié : `ss` montre l'écoute sur `10.99.0.1:9090` seulement ; HTTP 200 par le tunnel, rien sur l'IP publique ; NetworkManager absent.
+- Problème rencontré : la session se coupait (« Disconnected »), surtout en ouvrant la page Machines. Le journal montrait `cockpit-bridge` planter : `sd_bus_attach_event: Invalid argument`, puis `channel is already open`.
+  - Cause : la page Machines ouvre aussi le bus D-Bus de session de `debian` (libvirt en `qemu:///session`). `dbus-user-session` a été installé avec Cockpit, mais le gestionnaire de session de `debian`, lancé avant et maintenu par les connexions SSH, n'avait pas démarré son `dbus.socket` : `/run/user/1000/bus` n'existait pas. Au deuxième essai d'ouverture de ce bus, `cockpit-bridge` plante au lieu de renvoyer une erreur.
+  - Reproduit sans navigateur, en envoyant les messages du protocole Cockpit à `cockpit-bridge --debug` (deux ouvertures du bus de session).
+  - Corrigé dans le script : il démarre `dbus.socket` dans les gestionnaires de session déjà lancés (`runuser … systemctl --user start dbus.socket`). Après un redémarrage, le socket démarre de lui-même.
+  - Avant de trouver la cause, Cockpit est passé à la version de `trixie-backports` (368, cockpit-machines 357) : même plantage, ce n'était pas la cause. La version des backports est gardée, comme le conseille le projet Cockpit pour Debian.
+  - Vérifié : le bus de session existe, `org.libvirt` répond sur le bus de session et sur le bus système, plus de plantage. Ces mises à jour ont aussi exercé la désinstallation (purge par la ressource OpenTofu), qui fonctionne.
 
 ## À faire
 - Définir le mot de passe de `debian` (`ssh debian@10.99.0.1 sudo passwd debian`) pour se connecter à Cockpit.
