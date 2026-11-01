@@ -1,0 +1,18 @@
+# État et secrets Terraform : jamais versionnés
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+secrets.env
+.env
+*.auto.tfvars
+
+# Fichiers Packer générés
+packer_cache/
+*.pkrvars.hcl
+
+# Garder le fichier de verrouillage des providers
+!.terraform.lock.hcl
+rendu/
+*.tfplan

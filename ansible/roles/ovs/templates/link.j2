@@ -1,0 +1,6 @@
+# Managed by Ansible (roles/ovs). Names the card with this MAC after its segment.
+[Match]
+MACAddress={{ item.mac }}
+
+[Link]
+Name={{ item.link }}

@@ -1,0 +1,2 @@
+# Copy to terraform.tfvars (ignored by Git).
+admin_user = "dvxam"

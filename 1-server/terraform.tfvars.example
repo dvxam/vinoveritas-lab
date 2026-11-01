@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars (ignored by Git) and fill in the values.
+service_name = "nsXXXXXXX.ip-X-X-X-X.net"
+
+# true reinstalls the server with Debian 13 and WIPES THE DISKS. Set back to false afterwards.
+install_debian = false
+
+# Mac WireGuard public key: create an empty tunnel in the WireGuard app, it shows the key.
+wg_mac_public_key = "MAC_PUBLIC_KEY_44_BASE64_CHARACTERS="

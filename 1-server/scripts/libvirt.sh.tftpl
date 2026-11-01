@@ -1,0 +1,47 @@
+#!/bin/bash
+# KVM and libvirt on the lab server, next to Debian (no Proxmox).
+# Template rendered and run as root by 1-server/libvirt.tf. Safe to re-run.
+set -euo pipefail
+
+# --- Values (injected by Terraform) -------------------------------------------
+USER_NAME="${user}"
+LAB_NETWORK="${lab_network}"
+PUBLIC_INTERFACE="${public_interface}"
+
+log() {
+  echo "[libvirt] $*"
+}
+
+log "Packages"
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+# ovmf: UEFI; swtpm-tools: Windows 11 TPM chip; xorriso: cloud-init ISOs
+apt-get install -y --no-install-recommends \
+  qemu-system-x86 qemu-utils libvirt-daemon-system ovmf swtpm-tools xorriso netcat-openbsd iptables
+
+log "Permissions: $USER_NAME drives libvirt without sudo (Terraform connects over SSH)"
+usermod -aG libvirt,kvm "$USER_NAME"
+
+log "NAT from the lab network to the Internet"
+# libvirt creates the network in "open" mode (no rules): NAT is set up here,
+# otherwise the Mac could not reach the VMs through the tunnel.
+cat > /etc/systemd/system/lab-nat.service <<UNIT
+[Unit]
+Description=NAT for the lab network ($LAB_NETWORK)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/iptables -t nat -A POSTROUTING -s $LAB_NETWORK -o $PUBLIC_INTERFACE -j MASQUERADE
+ExecStop=/usr/sbin/iptables -t nat -D POSTROUTING -s $LAB_NETWORK -o $PUBLIC_INTERFACE -j MASQUERADE
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable lab-nat
+systemctl restart lab-nat
+
+log "Done"

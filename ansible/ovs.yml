@@ -1,0 +1,6 @@
+# Configures the OVS VM. Run from the Mac over the tunnel, or later from ADMIN01:
+#   ansible-playbook ovs.yml
+- name: Configure Open vSwitch
+  hosts: ovs
+  roles:
+    - ovs

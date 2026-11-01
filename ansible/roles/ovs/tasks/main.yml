@@ -1,0 +1,54 @@
+---
+# Open vSwitch on the VM: packages, card names, bridge, ports, management address.
+
+- name: Install Open vSwitch
+  ansible.builtin.apt:
+    name: openvswitch-switch
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Start Open vSwitch now and at boot
+  ansible.builtin.service:
+    name: openvswitch-switch
+    state: started
+    enabled: true
+
+# Names the cards after their segment. Takes effect at the next boot (handler).
+- name: Name each card after its segment
+  ansible.builtin.template:
+    src: link.j2
+    dest: "/etc/systemd/network/10-{{ item.link }}.link"
+    mode: "0644"
+  loop: "{{ ovs_cards }}"
+  notify: Reboot
+
+- name: Create the bridge
+  openvswitch.openvswitch.openvswitch_bridge:
+    bridge: br0
+    state: present
+
+- name: Add one port per card, with its VLAN
+  openvswitch.openvswitch.openvswitch_port:
+    bridge: br0
+    port: "{{ item.link }}"
+    tag: "{{ item.vlan | default(omit) }}"
+    state: present
+  loop: "{{ ovs_cards }}"
+
+- name: Add the management port (internal, on its VLAN)
+  openvswitch.openvswitch.openvswitch_port:
+    bridge: br0
+    port: mgmt
+    tag: "{{ ovs_mgmt.vlan }}"
+    set:
+      - "Interface mgmt type=internal"
+    state: present
+
+# The OVS database keeps bridge and ports across reboots; the address must be set by networkd.
+- name: Give the management port its address
+  ansible.builtin.template:
+    src: mgmt.network.j2
+    dest: /etc/systemd/network/10-mgmt.network
+    mode: "0644"
+  notify: Restart networkd

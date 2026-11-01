@@ -1,0 +1,69 @@
+#!/bin/bash
+# WireGuard on the lab server.
+# Template rendered and run as root by 1-server/wireguard.tf: values come from 1-server/variables.tf.
+# Safe to re-run: the server's private key is kept.
+set -euo pipefail
+
+# --- Values (injected by Terraform) -------------------------------------------
+MAC_PUBLIC_KEY="${mac_public_key}"
+PORT="${port}"
+SERVER_ADDRESS="${server_address}"
+NETWORK="${network}"
+MAC_ADDRESS="${mac_address}"
+PUBLIC_INTERFACE="${public_interface}"
+
+# --- Paths --------------------------------------------------------------------
+WG_DIR=/etc/wireguard
+PRIVATE_KEY="$WG_DIR/server.key"
+PUBLIC_KEY="$WG_DIR/server.pub"
+
+log() {
+  echo "[wireguard] $*"
+}
+
+log "Packages"
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y wireguard-tools iptables
+
+log "Routing"
+echo 'net.ipv4.ip_forward = 1' > /etc/sysctl.d/90-routing.conf
+rm -f /etc/sysctl.d/90-routage.conf # former name
+# No sysctl command on OVH's Debian image (procps missing)
+systemctl restart systemd-sysctl
+
+log "Keys"
+umask 077
+# Keys created by the former French version of this script: keep them, the Mac knows this public key
+if [ -f "$WG_DIR/serveur.key" ] && [ ! -f "$PRIVATE_KEY" ]; then
+  mv "$WG_DIR/serveur.key" "$PRIVATE_KEY"
+  rm -f "$WG_DIR/serveur.pub"
+fi
+# Private key created only once: re-running the script does not replace it
+if [ ! -f "$PRIVATE_KEY" ]; then
+  wg genkey > "$PRIVATE_KEY"
+fi
+wg pubkey < "$PRIVATE_KEY" > "$PUBLIC_KEY"
+
+log "Configuration"
+cat > "$WG_DIR/wg0.conf" <<CONF
+[Interface]
+Address = $SERVER_ADDRESS
+ListenPort = $PORT
+PostUp = wg set %i private-key $PRIVATE_KEY
+PostUp = iptables -t nat -A POSTROUTING -s $NETWORK -o $PUBLIC_INTERFACE -j MASQUERADE
+PostDown = iptables -t nat -D POSTROUTING -s $NETWORK -o $PUBLIC_INTERFACE -j MASQUERADE
+
+[Peer]
+# Mac
+PublicKey = $MAC_PUBLIC_KEY
+AllowedIPs = $MAC_ADDRESS
+CONF
+
+# First run: starts the tunnel. Afterwards: reloads the peers without dropping
+# current connections (even an SSH session going through the tunnel).
+# Changing the address or the interface needs: systemctl restart wg-quick@wg0
+systemctl enable wg-quick@wg0
+systemctl reload-or-restart wg-quick@wg0
+
+log "Server public key, for the Mac's tunnels: $(cat "$PUBLIC_KEY")"

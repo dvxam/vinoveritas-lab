@@ -1,0 +1,8 @@
+# Machines of the lab. OVS is reached through the server (ProxyJump), over the WireGuard tunnel.
+all:
+  hosts:
+    ovs:
+      # DHCP address on the temporary nat network: check it with `tofu -chdir=2-lab output ssh`
+      ansible_host: 192.168.206.165
+      ansible_user: root
+      ansible_ssh_common_args: "-o ProxyJump=debian@10.99.0.1"
