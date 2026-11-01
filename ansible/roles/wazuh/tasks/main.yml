@@ -89,5 +89,24 @@
       </ossec_config>
   notify: Restart wazuh-manager
 
+# Wazuh loads every file of etc/decoders and etc/rules: see the comments in the files for why
+- name: Decode the pfSense firewall log
+  ansible.builtin.copy:
+    src: vinoveritas_pfsense_decoders.xml
+    dest: /var/ossec/etc/decoders/vinoveritas_pfsense_decoders.xml
+    owner: wazuh
+    group: wazuh
+    mode: "0660"
+  notify: Restart wazuh-manager
+
+- name: Turn pfSense blocks into alerts
+  ansible.builtin.copy:
+    src: vinoveritas_pfsense_rules.xml
+    dest: /var/ossec/etc/rules/vinoveritas_pfsense_rules.xml
+    owner: wazuh
+    group: wazuh
+    mode: "0660"
+  notify: Restart wazuh-manager
+
 - name: Import the dashboards
   ansible.builtin.include_tasks: dashboards.yml

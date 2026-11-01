@@ -166,6 +166,14 @@
 - Rôle `wazuh`, `dashboards.yml` : mot de passe `admin` lu dans `wazuh-install-files.tar` sur SIEM01 (`no_log`, jamais dans le dépôt ; `-e wazuh_dashboard_password=...` s'il a été changé), import par l'API (`_import?overwrite=true`) quand le fichier change. `verify.yml` : le tableau de bord existe.
 - Pas testé contre SIEM01 : syntaxe vérifiée, JSON valide. Pas encore : panneau des flux bloqués par pfSense (décodage du syslog à vérifier), tableau de bord « Accès aux données sensibles » (audit des fichiers de FS01).
 
+### 23. Journaux de pfSense dans Wazuh, tableau de bord « Réseau » (code prêt, à lancer par l'utilisateur)
+- Constaté : le syslog de pfSense arrive bien sur SIEM01 (514/udp), mais aucune alerte n'en sort. Deux causes :
+  - pfSense n'envoie pas de nom d'hôte (`<134>Nov  1 19:39:58 filterlog[78906]: …`) : Wazuh prend `filterlog[78906]:` pour le nom d'hôte, et son décodeur pfSense (`program_name` filterlog) ne reconnaît plus rien. Vérifié avec `wazuh-logtest` : avec un nom d'hôte ajouté, la même ligne est décodée ;
+  - la règle de Wazuh pour les blocages (87701) a l'option `no_log` : même décodés, les blocages ne deviendraient jamais des alertes.
+- Rôle `wazuh` : décodeur `vinoveritas-pfsense` (PCRE2, lit le contenu de filterlog : règle, interface, action, sens, protocole, source, destination, ports ; IPv4) et règles 100200 à 100203 (flux bloqué niveau 3, flux autorisé niveau 3, plus de 20 blocages d'une même source en une minute niveau 10), dans `etc/decoders` et `etc/rules` de SIEM01. `verify.yml` passe une vraie ligne de pfSense dans `wazuh-logtest` et vérifie la règle 100201, la source et le port.
+- Tableau de bord « Vino Veritas — Réseau » : matrice des flux bloqués (source × destination, carte de chaleur), balayages détectés (règle 100203), flux bloqués dans le temps par interface de pfSense, détail (source, destination, port, protocole). Les deux tableaux de bord sont maintenant dans une liste (`wazuh_dashboards`), importés et vérifiés en boucle.
+- Pas testé contre SIEM01 : expressions vérifiées en Python sur trois lignes (UDP, ICMP, TCP), syntaxe Ansible et JSON valides. Bruit attendu : les diffusions NetBIOS de DC01 (`10.50.20.255:138`) sont bloquées et apparaîtront dans la matrice.
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).
@@ -183,3 +191,4 @@
 - Comptes : `ansible-playbook ad_users.yml` depuis ADMIN01, après `dc01.yml`.
 - Agents Wazuh, dans l'ordre : `siem01.yml`, `ovs.yml`, `pfsense.yml` (alias F18), puis `wazuh_agents.yml --limit admin01,ovs` (Mac ou serveur) et `wazuh_agents.yml --limit windows` (ADMIN01).
 - Tableau de bord : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.
+- Journaux pfSense et tableau de bord « Réseau » : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.

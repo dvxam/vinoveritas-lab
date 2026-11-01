@@ -1,0 +1,34 @@
+<!--
+  Managed by Ansible (roles/wazuh). Rules for the pfSense firewall log (decoder vinoveritas-pfsense).
+  Wazuh's own rule for blocks (87701) has no_log: the blocks would never reach the dashboard.
+  Level 3: recorded and shown in the dashboard "Réseau", no notification.
+-->
+<group name="pfsense,vinoveritas,">
+  <rule id="100200" level="0">
+    <decoded_as>vinoveritas-pfsense</decoded_as>
+    <description>pfSense : journal du pare-feu</description>
+  </rule>
+
+  <rule id="100201" level="3">
+    <if_sid>100200</if_sid>
+    <action>block</action>
+    <description>pfSense : flux bloqué $(srcip) -> $(dstip):$(dstport) ($(protocol))</description>
+    <group>firewall_block,pci_dss_1.4,nist_800_53_SC.7,</group>
+  </rule>
+
+  <!-- Only the rules logged in pfSense send their passes: none by default -->
+  <rule id="100202" level="3">
+    <if_sid>100200</if_sid>
+    <action>pass</action>
+    <description>pfSense : flux autorisé $(srcip) -> $(dstip):$(dstport) ($(protocol))</description>
+    <group>firewall_allow,</group>
+  </rule>
+
+  <!-- A machine that knocks on many closed doors: scan, or a compromised machine trying to leave its zone -->
+  <rule id="100203" level="10" frequency="20" timeframe="60" ignore="300">
+    <if_matched_sid>100201</if_matched_sid>
+    <same_source_ip />
+    <description>pfSense : nombreux flux bloqués depuis $(srcip) (balayage ou machine compromise ?)</description>
+    <group>firewall_block,attack,pci_dss_11.4,nist_800_53_SI.4,</group>
+  </rule>
+</group>

@@ -63,19 +63,42 @@
 - name: Get the dashboard admin password
   ansible.builtin.include_tasks: dashboard_password.yml
 
-- name: Ask for the dashboard "Accès et identités"
+- name: Ask for each dashboard
   ansible.builtin.uri:
-    url: https://127.0.0.1/api/saved_objects/dashboard/vv-access-identities
+    url: "https://127.0.0.1/api/saved_objects/dashboard/{{ item.id }}"
     url_username: admin
     url_password: "{{ wazuh_api_password }}"
     force_basic_auth: true
     validate_certs: false
-  register: wazuh_access_dashboard
+  loop: "{{ wazuh_dashboards }}"
+  loop_control:
+    label: "{{ item.id }}"
+  register: wazuh_dashboards_check
   failed_when: false
 
-- name: The dashboard "Accès et identités" exists
+- name: Each dashboard exists
   ansible.builtin.assert:
-    that: wazuh_access_dashboard.status == 200
-    fail_msg: "Tableau de bord absent (HTTP {{ wazuh_access_dashboard.status }})"
+    that: item.status == 200
+    fail_msg: "Tableau de bord {{ item.item.id }} absent (HTTP {{ item.status }})"
     # Fixed text: Ansible evaluates success_msg even when the dashboard is missing (404, no attributes)
-    success_msg: "Tableau de bord « Accès et identités » présent"
+    success_msg: "Tableau de bord {{ item.item.id }} présent"
+  loop: "{{ wazuh_dashboards_check.results }}"
+  loop_control:
+    label: "{{ item.item.id }}"
+
+# A real line sent by pfSense (no hostname), through the rules of the manager
+- name: Test a pfSense block with wazuh-logtest
+  ansible.builtin.shell: >-
+    echo 'Nov  1 19:39:58 filterlog[78906]: 4,,,1000000103,em1.20,match,block,in,4,0x0,,128,62702,0,none,17,udp,229,10.50.20.10,10.50.20.255,138,138,209'
+    | /var/ossec/bin/wazuh-logtest
+  register: wazuh_pfsense_test
+  changed_when: false
+
+- name: A pfSense block becomes an alert, with source and destination
+  ansible.builtin.assert:
+    that:
+      - "\"id: '100201'\" in wazuh_pfsense_test.stdout"
+      - "\"srcip: '10.50.20.10'\" in wazuh_pfsense_test.stdout"
+      - "\"dstport: '138'\" in wazuh_pfsense_test.stdout"
+    fail_msg: "Blocage pfSense mal décodé : {{ wazuh_pfsense_test.stdout_lines[-25:] }}"
+    success_msg: "Blocage pfSense décodé (règle 100201, source, destination, port)"

@@ -31,3 +31,8 @@ wazuh_zones_gateway: 10.50.20.1
 wazuh_syslog_port: 514
 wazuh_syslog_allowed_ips:
   - 10.50.20.1
+
+# Dashboards imported into the Wazuh dashboard (templates/<file>.j2, id of the dashboard object)
+wazuh_dashboards:
+  - { file: access-dashboard.ndjson, id: vv-access-identities }  # failed logons, privileged accounts, AD changes
+  - { file: network-dashboard.ndjson, id: vv-network }           # flows blocked by pfSense
