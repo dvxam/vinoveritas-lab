@@ -46,6 +46,7 @@ Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaqu
 | SIEM01 | Wazuh tout-en-un (VLAN 20) — VM créée, Wazuh pas encore installé | `10.50.20.30` (seg-siem), `192.168.206.30` (nat, temporaire) | `root` (`admin_user`) | `2-lab/siem01.tf` |
 | OVS | Commutateur Open vSwitch | `192.168.206.166` (nat, DHCP, temporaire) ; `10.50.10.2` (mgmt, VLAN 10) ; ports sans adresse sur les 7 segments | `root` (`admin_user`) | `2-lab/` |
 
+| DC01 | Contrôleur de domaine `vinoveritas.local`, DNS (Windows Server 2022) | `10.50.20.10` (seg-dc, VLAN 20) | `Administrator` (mot de passe dans `ansible/secrets/windows.yml`) ; WinRM 5986 et RDP depuis ADMIN | `2-lab/windows.tf` |
 | pfSense | Pare-feu et routeur | `192.168.206.167` (WAN `em0`, DHCP sur nat) ; `10.50.10.1` (LAN `em1.10`, VLAN 10) | `admin` (clé SSH ; mot de passe dans `ansible/secrets/pfsense.yml`) | `2-lab/pfsense.tf` + console |
 
 - L'adresse d'OVS vient du DHCP : la valeur à jour est donnée par `tofu -chdir=2-lab output ssh`.
@@ -58,6 +59,7 @@ Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaqu
 | ADMIN01 | nat | `02:50:00:00:10:11` | — |
 | SIEM01 | seg-siem | `02:50:00:00:20:30` | — |
 | SIEM01 | nat | `02:50:00:00:20:31` | — |
+| DC01 | seg-dc | `02:50:00:00:20:10` | — |
 | pfSense | nat (WAN) | `02:50:00:00:00:01` | em0 |
 | pfSense | seg-trunk (LAN) | `02:50:00:00:00:02` | em1 |
 | OVS | nat | `02:50:00:00:01:00` | enp1s0 |

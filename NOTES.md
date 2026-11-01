@@ -116,7 +116,16 @@
 - Vérifié (`verify.yml`, `verify_from_admin.yml`) : adresses des 4 zones, dhcpd et unbound actifs, chaque règle chargée (et F21, F22, « allow all » absentes), NAT des 4 réseaux, syslog vers SIEM01 ; depuis ADMIN01, 22 et 443 ouverts sur `10.50.10.1`, DNS fermé (seul OVS y a droit). Second lancement : aucun changement.
 - Limites : les machines derrière pfSense passent encore par leur lien nat ; les règles ne sont donc pas encore testées en vrai trafic. F18 n'ouvre que le 443 : les sources APT devront être en `https://`. Pas d'ICMP vers pfSense (absent de la matrice).
 
+### 16. DC01 (installation lancée, promotion à faire)
+- `2-lab/windows.tf` : table des VM Windows (DC01 seul pour l'instant, FS01 ira dans la même table). Windows Server 2022 en évaluation (180 jours), anglais, ISO de l'Evaluation Center téléchargée sur le serveur (5 Go, pas de somme publiée par Microsoft). Disque SATA et carte e1000e : Windows a les pilotes, pas besoin de l'ISO VirtIO. ACPI et APIC ajoutés, comme pour pfSense.
+- Installation sans intervention : `2-lab/windows/autounattend.xml.tftpl` (disque MBR, édition Standard Desktop Experience, nom, IP fixe `10.50.20.10/24`, passerelle et DNS `10.50.20.1`, clavier français, fuseau de Paris, licence d'évaluation acceptée avec l'accord de l'utilisateur), sur un petit ISO construit sur le serveur (`xorriso`, droits 600 car il contient le mot de passe). Au premier démarrage, `setup-winrm.ps1` active WinRM en HTTPS (certificat auto-signé), pare-feu Windows limité au réseau ADMIN.
+- Mot de passe Administrator : `ansible/secrets/windows.yml` (non versionné), lu à la fois par `windows.tf` et par Ansible. Il est aussi dans l'état OpenTofu (local).
+- Ansible depuis ADMIN01 (WinRM 5986, F11) : rôle `admin` complété (rsync, route `10.50.0.0/16` par pfSense, `/etc/netplan/60-lab-zones.yaml`) ; DC01 dans `inventory.yml` (groupe `windows`) ; rôle `dc01` + `dc01.yml` : AD DS, forêt `vinoveritas.local` (NetBIOS `VINOVERITAS`), DNS sur lui-même, redirection vers pfSense (F9), heure prise sur pfSense, RDP ouvert au réseau ADMIN. `verify.yml` : domaine, PDC, résolution d'un nom du domaine et d'un nom Internet.
+- Limite : certificat WinRM non vérifié (`ansible_winrm_server_cert_validation: ignore`), à remplacer par `ansible_winrm_ca_trust_path` et à signaler dans le rapport.
+- À partir d'ici, l'utilisateur lance lui-même `tofu apply` et `ansible-playbook`.
+
 ## À faire
+- DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).
 - Exporter `config.xml` de pfSense dans le dépôt (sans les secrets).
 - Passer la route par défaut d'ADMIN01 (puis des autres VM) sur pfSense, et retirer les liens nat temporaires.
 - Définir le mot de passe de `debian` (`ssh debian@10.99.0.1 sudo passwd debian`) pour se connecter à Cockpit.

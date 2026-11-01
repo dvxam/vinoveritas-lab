@@ -1,0 +1,23 @@
+# Run once at first logon (autounattend.xml): WinRM over HTTPS, so Ansible takes over
+# from ADMIN01 (flow F11). Adapted from later/full-lab/fichiers/activer-winrm.ps1.
+# Log: C:\Windows\Temp\setup-winrm.log
+Start-Transcript -Path C:\Windows\Temp\setup-winrm.log
+$ErrorActionPreference = 'Stop'
+
+# The lab network is "unidentified", hence Public: WinRM refuses to start on a Public network
+Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private
+
+Enable-PSRemoting -Force -SkipNetworkProfileCheck
+Set-Item WSMan:\localhost\Service\AllowUnencrypted -Value $false
+
+# HTTPS listener with a self-signed certificate (to be trusted on ADMIN01, see the notes)
+$cert = New-SelfSignedCertificate -DnsName $env:COMPUTERNAME -CertStoreLocation Cert:\LocalMachine\My
+Get-ChildItem WSMan:\localhost\Listener | Where-Object { $_.Keys -contains 'Transport=HTTPS' } | Remove-Item -Recurse
+New-Item -Path WSMan:\localhost\Listener -Transport HTTPS -Address * -CertificateThumbPrint $cert.Thumbprint -Force | Out-Null
+
+# No WinRM over plain HTTP from the network; HTTPS only from the ADMIN zone
+Disable-NetFirewallRule -Name 'WINRM-HTTP-In-TCP*' -ErrorAction SilentlyContinue
+New-NetFirewallRule -Name 'WinRM-HTTPS-ADMIN' -DisplayName 'WinRM HTTPS (ADMIN zone, F11)' `
+  -Direction Inbound -Protocol TCP -LocalPort 5986 -RemoteAddress ${admin_network} -Action Allow | Out-Null
+
+Stop-Transcript

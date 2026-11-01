@@ -1,0 +1,67 @@
+---
+# DC01: first domain controller of vinoveritas.local, with its DNS server.
+
+- name: Install AD DS and its management tools
+  ansible.windows.win_feature:
+    name: AD-Domain-Services
+    include_management_tools: true
+
+# Also installs the DNS server role. The DSRM password is the Administrator one (secrets/windows.yml).
+- name: Create the forest and promote DC01
+  microsoft.ad.domain:
+    dns_domain_name: "{{ dc01_domain }}"
+    domain_netbios_name: "{{ dc01_netbios }}"
+    safe_mode_password: "{{ windows_admin_password }}"
+    install_dns: true
+    reboot: true
+
+- name: DC01 is its own DNS server
+  ansible.windows.win_dns_client:
+    adapter_names: "*"
+    dns_servers: [127.0.0.1]
+
+# Servers may not use DNS on the Internet (only 443, F10): names outside the domain go to pfSense
+- name: Forward other names to pfSense
+  ansible.windows.win_powershell:
+    script: |
+      $wanted = '{{ dc01_upstream }}'
+      $current = @((Get-DnsServerForwarder).IPAddress | ForEach-Object { $_.IPAddressToString })
+      if ($current.Count -ne 1 -or $current[0] -ne $wanted) {
+        Set-DnsServerForwarder -IPAddress $wanted
+        $Ansible.Changed = $true
+      } else {
+        $Ansible.Changed = $false
+      }
+
+# The PDC emulator is the time source of the domain: it takes its time from pfSense (F9)
+- name: Take the time from pfSense
+  ansible.windows.win_powershell:
+    script: |
+      $peer = '{{ dc01_upstream }},0x8'
+      $current = (Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters).NtpServer
+      if ($current -ne $peer) {
+        w32tm /config /manualpeerlist:"$peer" /syncfromflags:manual /reliable:yes /update | Out-Null
+        Restart-Service w32time
+        $Ansible.Changed = $true
+      } else {
+        $Ansible.Changed = $false
+      }
+
+# AD and GPO consoles are used over RDP from ADMIN01 (F11)
+- name: Allow Remote Desktop
+  ansible.windows.win_regedit:
+    path: HKLM:\System\CurrentControlSet\Control\Terminal Server
+    name: fDenyTSConnections
+    data: 0
+    type: dword
+
+- name: Open RDP to the ADMIN zone only
+  community.windows.win_firewall_rule:
+    name: Remote Desktop (ADMIN zone, F11)
+    localport: 3389
+    protocol: tcp
+    direction: in
+    action: allow
+    remoteip: "{{ dc01_admin_network }}"
+    state: present
+    enabled: true

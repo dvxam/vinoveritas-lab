@@ -20,6 +20,8 @@ all:
     ovs:
       # DHCP address on the temporary nat network: check it with `tofu -chdir=2-lab output ssh`
       ansible_host: 192.168.206.166
+    dc01:
+      ansible_host: 10.50.20.10
     pfsense:
       # LAN on VLAN 10, only reachable through ADMIN01 (Mission 2: pfSense is administered from ADMIN)
       ansible_host: 10.50.10.1
@@ -28,3 +30,18 @@ all:
       ansible_ssh_common_args: >-
         -o StrictHostKeyChecking=accept-new
         -o ProxyJump={{ '' if lookup('ansible.builtin.pipe', 'hostname -s') == 'pve' else 'debian@10.99.0.1,' }}root@192.168.206.10
+
+# Windows VMs: WinRM over HTTPS (flow F11), from ADMIN01 only (route through pfSense).
+# Run there: ssh into ADMIN01, then ansible-playbook dc01.yml (see NOTES.md).
+windows:
+  hosts:
+    dc01:
+  vars:
+    ansible_connection: winrm
+    ansible_port: 5986
+    ansible_winrm_transport: ntlm
+    ansible_user: Administrator
+    ansible_password: "{{ windows_admin_password }}" # ansible/secrets/windows.yml, not versioned
+    # Self-signed certificate made at install (setup-winrm.ps1). To do: trust it on ADMIN01
+    # (ansible_winrm_ca_trust_path) instead of skipping the check, and say so in the report.
+    ansible_winrm_server_cert_validation: ignore

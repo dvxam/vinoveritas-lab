@@ -1,0 +1,8 @@
+---
+# Domain of the report (Context): vinoveritas.local
+dc01_domain: vinoveritas.local
+dc01_netbios: VINOVERITAS
+# pfSense in VLAN 20: DNS forwarder and time source of the domain (F9)
+dc01_upstream: 10.50.20.1
+# Zone allowed to open RDP (F11)
+dc01_admin_network: 10.50.10.0/24

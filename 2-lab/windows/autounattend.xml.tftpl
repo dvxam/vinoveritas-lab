@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Unattended install of Windows Server 2022 (English, Desktop Experience) for ${hostname}.
+  Rendered by 2-lab/windows.tf, put on a small ISO next to the Windows ISO: Setup reads it by itself.
+  Sets: disk, edition, computer name, fixed IP, Administrator password, then WinRM over HTTPS
+  (setup-winrm.ps1, same ISO) so that Ansible takes over from ADMIN01 (flow F11).
+-->
+<unattend xmlns="urn:schemas-microsoft-com:unattend" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+  <settings pass="windowsPE">
+    <component name="Microsoft-Windows-International-Core-WinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <SetupUILanguage><UILanguage>en-US</UILanguage></SetupUILanguage>
+      <InputLocale>${input_locale}</InputLocale>
+      <SystemLocale>en-US</SystemLocale>
+      <UILanguage>en-US</UILanguage>
+      <UserLocale>en-US</UserLocale>
+    </component>
+    <component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <!-- BIOS boot, MBR: one NTFS partition on the whole disk -->
+      <DiskConfiguration>
+        <Disk wcm:action="add">
+          <DiskID>0</DiskID>
+          <WillWipeDisk>true</WillWipeDisk>
+          <CreatePartitions>
+            <CreatePartition wcm:action="add">
+              <Order>1</Order>
+              <Type>Primary</Type>
+              <Extend>true</Extend>
+            </CreatePartition>
+          </CreatePartitions>
+          <ModifyPartitions>
+            <ModifyPartition wcm:action="add">
+              <Order>1</Order>
+              <PartitionID>1</PartitionID>
+              <Active>true</Active>
+              <Format>NTFS</Format>
+              <Label>System</Label>
+              <Letter>C</Letter>
+            </ModifyPartition>
+          </ModifyPartitions>
+        </Disk>
+      </DiskConfiguration>
+      <ImageInstall>
+        <OSImage>
+          <InstallFrom>
+            <MetaData wcm:action="add">
+              <!-- Evaluation ISO: 1 Standard Core, 2 Standard Desktop Experience, 3 and 4 Datacenter -->
+              <Key>/IMAGE/INDEX</Key>
+              <Value>${image_index}</Value>
+            </MetaData>
+          </InstallFrom>
+          <InstallTo>
+            <DiskID>0</DiskID>
+            <PartitionID>1</PartitionID>
+          </InstallTo>
+        </OSImage>
+      </ImageInstall>
+      <UserData>
+        <AcceptEula>true</AcceptEula>
+        <FullName>Vino Veritas</FullName>
+        <Organization>Vino Veritas</Organization>
+      </UserData>
+    </component>
+  </settings>
+
+  <settings pass="specialize">
+    <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <ComputerName>${hostname}</ComputerName>
+      <TimeZone>${timezone}</TimeZone>
+    </component>
+    <!-- Server Manager does not open at logon -->
+    <component name="Microsoft-Windows-ServerManager-SvrMgrNc" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <DoNotOpenServerManagerAtLogon>true</DoNotOpenServerManagerAtLogon>
+    </component>
+    <!-- The card is found by its MAC address (fixed in windows.tf) -->
+    <component name="Microsoft-Windows-TCPIP" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <Interfaces>
+        <Interface wcm:action="add">
+          <Identifier>${mac}</Identifier>
+          <Ipv4Settings>
+            <DhcpEnabled>false</DhcpEnabled>
+          </Ipv4Settings>
+          <Ipv6Settings>
+            <DhcpEnabled>false</DhcpEnabled>
+          </Ipv6Settings>
+          <UnicastIpAddresses>
+            <IpAddress wcm:action="add" wcm:keyValue="1">${ip}</IpAddress>
+          </UnicastIpAddresses>
+          <Routes>
+            <Route wcm:action="add">
+              <Identifier>0</Identifier>
+              <Prefix>0.0.0.0/0</Prefix>
+              <NextHopAddress>${gateway}</NextHopAddress>
+            </Route>
+          </Routes>
+        </Interface>
+      </Interfaces>
+    </component>
+    <component name="Microsoft-Windows-DNS-Client" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <Interfaces>
+        <Interface wcm:action="add">
+          <Identifier>${mac}</Identifier>
+          <DNSServerSearchOrder>
+            <IpAddress wcm:action="add" wcm:keyValue="1">${dns}</IpAddress>
+          </DNSServerSearchOrder>
+        </Interface>
+      </Interfaces>
+    </component>
+  </settings>
+
+  <settings pass="oobeSystem">
+    <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <InputLocale>${input_locale}</InputLocale>
+      <SystemLocale>en-US</SystemLocale>
+      <UILanguage>en-US</UILanguage>
+      <UserLocale>en-US</UserLocale>
+    </component>
+    <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <OOBE>
+        <HideEULAPage>true</HideEULAPage>
+        <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+        <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+        <ProtectYourPC>3</ProtectYourPC>
+      </OOBE>
+      <UserAccounts>
+        <AdministratorPassword>
+          <Value>${admin_password}</Value>
+          <PlainText>true</PlainText>
+        </AdministratorPassword>
+      </UserAccounts>
+      <!-- One automatic logon, only to run the first logon commands -->
+      <AutoLogon>
+        <Enabled>true</Enabled>
+        <LogonCount>1</LogonCount>
+        <Username>Administrator</Username>
+        <Password>
+          <Value>${admin_password}</Value>
+          <PlainText>true</PlainText>
+        </Password>
+      </AutoLogon>
+      <FirstLogonCommands>
+        <!-- setup-winrm.ps1 is on the unattend ISO, whose drive letter is not known in advance -->
+        <SynchronousCommand wcm:action="add">
+          <Order>1</Order>
+          <Description>WinRM over HTTPS for Ansible</Description>
+          <CommandLine>cmd /c for %i in (D E F G H) do @if exist %i:\setup-winrm.ps1 powershell -NoProfile -ExecutionPolicy Bypass -File %i:\setup-winrm.ps1</CommandLine>
+        </SynchronousCommand>
+      </FirstLogonCommands>
+    </component>
+  </settings>
+</unattend>

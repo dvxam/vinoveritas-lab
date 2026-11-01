@@ -1,0 +1,20 @@
+# Configures DC01: AD DS, forest vinoveritas.local, DNS, time, RDP.
+# Run from ADMIN01 (WinRM 5986 through pfSense, flow F11). From the Mac:
+#   rsync -a --delete -e 'ssh -J debian@10.99.0.1' ansible/ root@192.168.206.10:vinoveritas-lab/ansible/
+#   ssh -J debian@10.99.0.1 root@192.168.206.10 'cd vinoveritas-lab/ansible && ansible-playbook dc01.yml'
+- name: Configure DC01
+  hosts: dc01
+  vars_files:
+    - secrets/windows.yml
+  roles:
+    - dc01
+
+- name: Check DC01
+  hosts: dc01
+  vars_files:
+    - secrets/windows.yml
+  tasks:
+    - name: Run the checks of the dc01 role
+      ansible.builtin.include_role:
+        name: dc01
+        tasks_from: verify

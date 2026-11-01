@@ -1,0 +1,36 @@
+---
+# Checks on DC01. Read-only.
+
+- name: Read the domain
+  ansible.windows.win_powershell:
+    script: |
+      $Ansible.Changed = $false
+      $d = Get-ADDomain
+      [pscustomobject]@{ dns = $d.DNSRoot; netbios = $d.NetBIOSName; pdc = $d.PDCEmulator }
+  register: dc01_domain_info
+
+- name: DC01 is the controller of the domain
+  ansible.builtin.assert:
+    that:
+      - dc01_domain_info.output[0].dns == dc01_domain
+      - dc01_domain_info.output[0].pdc | lower == ('dc01.' ~ dc01_domain) | lower
+    fail_msg: "Domaine inattendu : {{ dc01_domain_info.output[0] }}"
+    success_msg: "Domaine {{ dc01_domain }}, PDC {{ dc01_domain_info.output[0].pdc }}"
+
+- name: Resolve a domain name and an Internet name (through pfSense)
+  ansible.windows.win_powershell:
+    script: |
+      $Ansible.Changed = $false
+      foreach ($n in '{{ dc01_domain }}', 'deb.debian.org') {
+        [pscustomobject]@{ name = $n; ok = [bool](Resolve-DnsName $n -Type A -DnsOnly -ErrorAction SilentlyContinue) }
+      }
+  register: dc01_dns
+
+- name: DNS answers for the domain and, through the forwarder, for the Internet
+  ansible.builtin.assert:
+    that: item.ok
+    fail_msg: "{{ item.name }} non résolu"
+    success_msg: "{{ item.name }} résolu"
+  loop: "{{ dc01_dns.output }}"
+  loop_control:
+    label: "{{ item.name }}"

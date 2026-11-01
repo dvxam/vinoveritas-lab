@@ -6,6 +6,7 @@
     name:
       - ansible
       - git
+      - rsync # the Mac copies this repository here (rsync), see NOTES.md
     state: present
     update_cache: true
     cache_valid_time: 3600
@@ -23,3 +24,25 @@
   become: true
   become_user: "{{ admin_user }}"
   loop: "{{ admin_collections }}"
+
+# The default route still goes through the temporary nat link: without this route, traffic to
+# the other zones (DC01...) would leave by nat instead of crossing pfSense. Merged by netplan
+# with the cloud-init file (same card name, card0 = seg-admin).
+- name: Route to the other zones through pfSense
+  ansible.builtin.copy:
+    dest: /etc/netplan/60-lab-zones.yaml
+    mode: "0600"
+    content: |
+      # Managed by Ansible (roles/admin). The other zones of the lab, through pfSense.
+      network:
+        version: 2
+        ethernets:
+          card0:
+            routes:
+              - to: 10.50.0.0/16
+                via: 10.50.10.1
+  register: admin_zones_route
+
+- name: Apply the route
+  ansible.builtin.command: netplan apply
+  when: admin_zones_route.changed
