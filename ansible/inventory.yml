@@ -19,4 +19,12 @@ all:
       ansible_host: 192.168.206.10
     ovs:
       # DHCP address on the temporary nat network: check it with `tofu -chdir=2-lab output ssh`
-      ansible_host: 192.168.206.165
+      ansible_host: 192.168.206.166
+    pfsense:
+      # LAN on VLAN 10, only reachable through ADMIN01 (Mission 2: pfSense is administered from ADMIN)
+      ansible_host: 10.50.10.1
+      ansible_user: admin
+      ansible_python_interpreter: /usr/local/bin/python3.11
+      ansible_ssh_common_args: >-
+        -o StrictHostKeyChecking=accept-new
+        -o ProxyJump={{ '' if lookup('ansible.builtin.pipe', 'hostname -s') == 'pve' else 'debian@10.99.0.1,' }}root@192.168.206.10

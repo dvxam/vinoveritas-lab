@@ -1,0 +1,12 @@
+# Managed by Ansible (roles/ovs). Brings the segment cards up: OVS adds them to br0
+# but does not set them up, and without this they stay down and carry nothing.
+# No address on them: they are switch ports.
+[Match]
+Name={{ ovs_cards | map(attribute='link') | join(' ') }}
+
+[Network]
+LinkLocalAddressing=no
+IPv6AcceptRA=no
+
+[Link]
+RequiredForOnline=no

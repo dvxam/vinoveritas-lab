@@ -1,0 +1,28 @@
+# Configures pfSense: zones, DHCP, DNS, logs, aliases and the rules of the flow matrix (Mission 2).
+# Reached through ADMIN01 (ProxyJump in inventory.yml). Needs secrets/pfsense.yml (not versioned).
+# First run only, while pfSense still has its default password and no SSH key:
+#   ansible-playbook pfsense.yml -e ansible_password=pfsense   (needs sshpass)
+# Afterwards:
+#   ansible-playbook pfsense.yml
+- name: Configure pfSense
+  hosts: pfsense
+  vars_files:
+    - secrets/pfsense.yml
+  roles:
+    - pfsense
+
+- name: Check pfSense
+  hosts: pfsense
+  tasks:
+    - name: Run the checks of the pfsense role
+      ansible.builtin.include_role:
+        name: pfsense
+        tasks_from: verify
+
+- name: Check the rules from ADMIN01
+  hosts: admin01
+  tasks:
+    - name: Run the checks made from ADMIN01
+      ansible.builtin.include_role:
+        name: pfsense
+        tasks_from: verify_from_admin

@@ -24,3 +24,23 @@ variable "extra_ssh_public_keys" {
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN3st8rUdJhCJnsXZQY24uf2dP6Hyrm7bBVU552/UE34 debian@pve",
   ]
 }
+
+# --- SSH to the server, for the downloads libvirt cannot do (pfSense ISO) ---------------
+
+variable "server_host" {
+  description = "Server address in the WireGuard tunnel"
+  type        = string
+  default     = "10.99.0.1"
+}
+
+variable "server_user" {
+  description = "Account on the server (sudo)"
+  type        = string
+  default     = "debian"
+}
+
+variable "ssh_private_key_path" {
+  description = "SSH private key to reach the server"
+  type        = string
+  default     = "~/.ssh/id_ed25519"
+}

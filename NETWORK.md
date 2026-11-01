@@ -2,7 +2,7 @@
 
 Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaque machine ajoutée.
 
-*Dernière mise à jour : 1er novembre 2026. ADMIN01 et OVS tournent ; OVS est configuré par `ansible/` (pont `br0`, ports VLAN, `mgmt`). Cockpit installé sur le serveur, joignable par le tunnel.*
+*Dernière mise à jour : 1er novembre 2026. ADMIN01 et OVS tournent ; OVS est configuré par `ansible/` (pont `br0`, ports VLAN, `mgmt`). Cockpit installé sur le serveur, joignable par le tunnel. pfSense installé et configuré par `ansible/pfsense.yml` (4 zones, DHCP POSTES, DNS, règles de la matrice).*
 
 ## Schéma
 
@@ -19,11 +19,13 @@ Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaqu
 │   lab-nat  192.168.206.1  (passerelle, DHCP, DNS)      │                │
 │      │                                                 │                │
 │      ├── ADMIN01  192.168.206.10  (lien temporaire)    │                │
-│      └── OVS      192.168.206.165 (DHCP, temporaire)   │                │
+│      ├── OVS      192.168.206.166 (DHCP, temporaire)   │                │
+│      └── pfSense  192.168.206.167 (WAN, DHCP)          │                │
 │                                                        │                │
 │   Segments isolés (pas d'adresse sur le serveur) :     │                │
 │     seg-admin ── ADMIN01 10.50.10.10 ── OVS            │                │
-│     seg-trunk, seg-dc, seg-fs, seg-cli,                │                │
+│     seg-trunk ── pfSense em1 (VLAN 10 : 10.50.10.1) ── OVS                │
+│     seg-dc, seg-fs, seg-cli,                           │                │
 │     seg-backup, seg-siem ──────────────── OVS          │                │
 └────────────────────────────────────────────────────────┼────────────────┘
                                                          │
@@ -32,7 +34,7 @@ Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaqu
 
 - Le Mac joint le serveur par le tunnel (`10.99.0.1`). Il joint les VM par le même tunnel, à condition d'avoir `192.168.206.0/24` dans ses `AllowedIPs`.
 - Les VM sortent sur Internet par le NAT du serveur (service `lab-nat`).
-- Tant que pfSense n'existe pas, ADMIN01 sort par son lien `nat` ; sa carte VLAN 10 n'a pas encore de passerelle.
+- ADMIN01 sort encore par son lien `nat` : pfSense ne route pas encore vers Internet pour le VLAN 10 (configuration Ansible à venir).
 
 ## Machines
 
@@ -42,7 +44,9 @@ Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaqu
 | pve | Serveur OVH, hyperviseur ; Cockpit sur `10.99.0.1:9090` | `51.161.128.8` (public), `10.99.0.1` (tunnel), `192.168.206.1` (lab-nat) | `debian` (sudo) ; root refusé | `1-server/` |
 | ADMIN01 | Poste d'administration du labo (VLAN 10) | `10.50.10.10` (seg-admin), `192.168.206.10` (nat, temporaire) | `root` (`admin_user`) | `2-lab/` |
 | SIEM01 | Wazuh tout-en-un (VLAN 20) — VM créée, Wazuh pas encore installé | `10.50.20.30` (seg-siem), `192.168.206.30` (nat, temporaire) | `root` (`admin_user`) | `2-lab/siem01.tf` |
-| OVS | Commutateur Open vSwitch | `192.168.206.165` (nat, DHCP, temporaire) ; `10.50.10.2` (mgmt, VLAN 10) ; ports sans adresse sur les 7 segments | `root` (`admin_user`) | `2-lab/` |
+| OVS | Commutateur Open vSwitch | `192.168.206.166` (nat, DHCP, temporaire) ; `10.50.10.2` (mgmt, VLAN 10) ; ports sans adresse sur les 7 segments | `root` (`admin_user`) | `2-lab/` |
+
+| pfSense | Pare-feu et routeur | `192.168.206.167` (WAN `em0`, DHCP sur nat) ; `10.50.10.1` (LAN `em1.10`, VLAN 10) | `admin` (clé SSH ; mot de passe dans `ansible/secrets/pfsense.yml`) | `2-lab/pfsense.tf` + console |
 
 - L'adresse d'OVS vient du DHCP : la valeur à jour est donnée par `tofu -chdir=2-lab output ssh`.
 
@@ -54,6 +58,8 @@ Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaqu
 | ADMIN01 | nat | `02:50:00:00:10:11` | — |
 | SIEM01 | seg-siem | `02:50:00:00:20:30` | — |
 | SIEM01 | nat | `02:50:00:00:20:31` | — |
+| pfSense | nat (WAN) | `02:50:00:00:00:01` | em0 |
+| pfSense | seg-trunk (LAN) | `02:50:00:00:00:02` | em1 |
 | OVS | nat | `02:50:00:00:01:00` | enp1s0 |
 | OVS | seg-trunk | `02:50:00:00:01:01` | enp8s0 |
 | OVS | seg-admin | `02:50:00:00:01:10` | enp2s0 |
@@ -71,9 +77,11 @@ Les MAC d'OVS sont dans `ansible/host_vars/ovs.yml`.
 |---|---|---|---|---|
 | Tunnel WireGuard | `10.99.0.0/24` | `10.99.0.1` (serveur) | non | Administration depuis le Mac |
 | lab-nat (libvirt `nat`) | `192.168.206.0/24` | `192.168.206.1` (serveur) | `.100` à `.199` | Lien temporaire des VM, sortie Internet par NAT |
-| seg-admin | `10.50.10.0/24` (VLAN 10) | `10.50.10.1` (pfSense, à venir) | non | ADMIN01 ↔ OVS |
-| seg-trunk | VLAN étiquetés | — | non | pfSense ↔ OVS (à venir) |
-| seg-dc, seg-fs, seg-cli, seg-backup, seg-siem | voir le rapport | pfSense (à venir) | non | Une machine ↔ OVS |
+| seg-admin | `10.50.10.0/24` (VLAN 10) | `10.50.10.1` (pfSense) | non | ADMIN01 ↔ OVS ↔ pfSense |
+| seg-trunk | VLAN étiquetés 10, 20, 30, 40 | — | non | pfSense (`em1.10` à `em1.40`) ↔ OVS |
+| seg-dc, seg-fs, seg-siem | `10.50.20.0/24` (VLAN 20) | `10.50.20.1` (pfSense) | non | Une machine ↔ OVS |
+| seg-cli | `10.50.30.0/24` (VLAN 30) | `10.50.30.1` (pfSense) | pfSense, `.100` à `.199` | CLIENT01 ↔ OVS |
+| seg-backup | `10.50.40.0/24` (VLAN 40) | `10.50.40.1` (pfSense) | non | BACKUP01 ↔ OVS |
 
 ## Se connecter
 
@@ -99,8 +107,14 @@ ssh root@192.168.206.10
 
 **OVS** :
 ```bash
-ssh -J debian@10.99.0.1 root@192.168.206.165
+ssh -J debian@10.99.0.1 root@192.168.206.166
 ```
+
+**pfSense**, depuis ADMIN01 (SSH et interface web sur `10.50.10.1`, VLAN 10) :
+```bash
+ssh admin@10.50.10.1
+```
+Interface web depuis le Mac : `ssh -L 8443:10.50.10.1:443 -J debian@10.99.0.1 root@192.168.206.10`, puis `https://localhost:8443`. Console : Cockpit, page Machines, VM `pfsense`.
 
 **Cockpit** (interface web du serveur et des VM, console graphique dans le navigateur), par le tunnel uniquement :
 ```

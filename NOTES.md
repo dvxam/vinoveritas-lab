@@ -95,13 +95,34 @@
 - `tofu apply` fait : SIEM01 tourne. `inventory.yml` n'est pas encore modifié : ajouter `siem01` (`ansible_host: 192.168.206.30`).
 - Premier lancement du playbook interrompu pendant l'installation des outils (apt), avant l'assistant : rien de Wazuh sur la VM.
 
+### 14. pfSense
+- `2-lab/pfsense.tf`, à part de `vms.tf` : VM `pfsense` (2 vCPU, 2 Gio, disque vide de 16 Gio), WAN `em0` sur nat (DHCP, joue le réseau de l'école), LAN `em1` sur seg-trunk (trunk 802.1Q vers OVS). MAC `02:50:00:00:00:01` et `:02`.
+- ISO pfSense CE 2.7.2 (dernière version CE publiée en ISO ; 2.8 seulement par l'installeur en ligne de Netgate) : téléchargée et décompressée sur le serveur par SSH (`terraform_data`), somme SHA-256 vérifiée. Variables `server_host`, `server_user`, `ssh_private_key_path` ajoutées à `2-lab/variables.tf`.
+- Installation pilotée à la console depuis le Mac (`virsh screenshot` + `virsh send-key`) : UFS (2 Gio de RAM, ZFS déconseillé sous 8 Gio), disque entier.
+- **Problème : pfSense ne voyait aucune carte réseau** (« No interfaces found », puis arrêt). Essayé e1000, e1000e, virtio : sans effet. Cause : le provider ne met ni `<acpi/>` ni `<apic/>` dans la VM. Linux s'en passe, FreeBSD non (sans ACPI, pas d'énumération PCIe sur q35 ; sur i440fx, panique « A valid RSDP was not found »). Corrigé par `features = { acpi = true, apic = {} }`. Cartes e1000 gardées : `em0`/`em1`, comme dans le rapport.
+- Console, minimum pour qu'Ansible prenne la suite : WAN = `em0` (DHCP, `192.168.206.167`), VLAN 10 sur `em1`, LAN = `em1.10` en `10.50.10.1/24` sans DHCP, interface web en HTTPS, SSH activé. Mot de passe `admin` encore celui par défaut.
+- **Problème : ADMIN01 ne joignait ni OVS (`10.50.10.2`) ni pfSense.** Deux causes :
+  - la VM OVS avait été reconstruite (nouvelle adresse `192.168.206.166`) sans Open vSwitch : `inventory.yml` mis à jour, `ovs.yml` relancé ;
+  - dans OVS, les cartes `seg-*` restaient désactivées (`DOWN`, sans `UP`) : OVS les met dans `br0` sans les activer. La remarque de l'étape 8 (« DOWN tant qu'aucune VM n'y est branchée ») était fausse. Corrigé dans le rôle `ovs` : `10-ports.network` (networkd) active ces cartes sans leur donner d'adresse.
+- Vérifié depuis ADMIN01 : ping de `10.50.10.2` (OVS) et `10.50.10.1` (pfSense), ports 22 et 443 de pfSense ouverts.
+- Incident : un `tofu apply` lancé pour pfSense a aussi appliqué le code SIEM01 en cours d'écriture. Ensuite, les `apply` pfSense sont limités par `-target`.
+
+### 15. pfSense configuré avec Ansible
+- Rôle `pfsense` (collection `pfsensible.core` 0.7.1) + playbook `ansible/pfsense.yml`. Données dans `host_vars/pfsense.yml`, reprises de la Mission 2 : zones, adresses, matrice des flux.
+- Accès : pfSense est joint par ADMIN01 (`ProxyJump` dans `inventory.yml`), compte `admin`. Premier lancement avec le mot de passe par défaut (`-e ansible_password=pfsense`, `sshpass` installé sur le Mac avec Homebrew) ; le rôle pose ensuite les clés SSH du Mac et de `debian@pve`, et un mot de passe aléatoire. Mot de passe et hash dans `ansible/secrets/pfsense.yml`, ignoré par Git.
+- Fait : nom `pfsense.vinoveritas.local`, fuseau Europe/Paris ; VLAN 20, 30, 40 et interfaces SERVEURS, POSTES, SAUVEGARDE (LAN renommé ADMIN) ; DHCP sur POSTES (`.100` à `.199`, DNS = DC01) ; résolveur DNS sur ADMIN, SERVEURS, SAUVEGARDE (pas POSTES, X5) ; journaux (pare-feu, système, authentification) vers SIEM01 en syslog ; alias (machines, réseaux privés, ports) ; une règle par flux autorisé (F1 à F25), F21 et F22 créées désactivées ; règles « allow all » de la console supprimées (l'anti-lockout reste).
+- NAT sortant : mode automatique, il couvre déjà les 4 réseaux (table `tonatsubnets`) ; pas de règle à écrire.
+- Choix : les flux refusés (X1 à X8) n'ont pas de règle à eux : ils tombent sur la règle de blocage par défaut de pfSense, qui est journalisée.
+- Vérifié (`verify.yml`, `verify_from_admin.yml`) : adresses des 4 zones, dhcpd et unbound actifs, chaque règle chargée (et F21, F22, « allow all » absentes), NAT des 4 réseaux, syslog vers SIEM01 ; depuis ADMIN01, 22 et 443 ouverts sur `10.50.10.1`, DNS fermé (seul OVS y a droit). Second lancement : aucun changement.
+- Limites : les machines derrière pfSense passent encore par leur lien nat ; les règles ne sont donc pas encore testées en vrai trafic. F18 n'ouvre que le 443 : les sources APT devront être en `https://`. Pas d'ICMP vers pfSense (absent de la matrice).
+
 ## À faire
+- Exporter `config.xml` de pfSense dans le dépôt (sans les secrets).
+- Passer la route par défaut d'ADMIN01 (puis des autres VM) sur pfSense, et retirer les liens nat temporaires.
 - Définir le mot de passe de `debian` (`ssh debian@10.99.0.1 sudo passwd debian`) pour se connecter à Cockpit.
 - Lancer `ansible-playbook admin01.yml` (rôles devtools, admin et server_access).
-- Relever l'adresse DHCP d'OVS (`tofu -chdir=2-lab output ssh`) et la reporter dans `ansible/inventory.yml` si elle a changé.
 - Ajouter `192.168.206.0/24` aux `AllowedIPs` du tunnel du Mac (déjà fait pour la connexion par `-J`, pas encore pour un accès direct).
 - Remplacer `admin_user = "root"` par un compte nommé, puis reconstruire ADMIN01 et OVS.
-- Brancher ADMIN01 sur seg-admin pour que le port `mgmt` réponde depuis ADMIN01.
 - Pare-feu de l'hôte : SSH est encore ouvert sur l'IP publique (clé seule).
 - Mettre à jour la note *Labo chez OVH avec Proxmox et Terraform* : elle décrit encore Proxmox et Packer, et le dépôt d'infra.
 - Ansible sur ADMIN01 : cloud-init doit installer Ansible et cloner ce dépôt.

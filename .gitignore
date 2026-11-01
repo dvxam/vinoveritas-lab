@@ -16,3 +16,6 @@ packer_cache/
 !.terraform.lock.hcl
 rendu/
 *.tfplan
+
+# Ansible secrets (pfSense admin password): never versioned
+ansible/secrets/

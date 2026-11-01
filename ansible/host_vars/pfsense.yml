@@ -1,0 +1,98 @@
+# pfSense configuration, taken from the report (Mission 2: zones, addressing, flow matrix).
+# The console only did the bare minimum: WAN = em0 (DHCP), LAN = em1.10 (10.50.10.1/24), SSH on.
+
+# --- General ----------------------------------------------------------------------
+
+pfsense_hostname: pfsense
+pfsense_domain: vinoveritas.local
+pfsense_timezone: Europe/Paris
+
+# --- admin account ------------------------------------------------------------------
+# SSH keys of the machines that run Ansible. The password hash is in secrets/pfsense.yml (not versioned).
+pfsense_admin_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID9pjwfnOO3HKl+UKOuMGnWtCbQ8HHZLVsCCL/AihJtV dvxam123@gmail.com
+  # debian@pve (~/.ssh/id_ed25519.pub on the server); changes if the server is reinstalled
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN3st8rUdJhCJnsXZQY24uf2dP6Hyrm7bBVU552/UE34 debian@pve
+
+# --- Zones: one VLAN on the trunk (em1) and one interface each -----------------------
+# The LAN made at the console (em1.10) is renamed ADMIN.
+pfsense_trunk: em1
+pfsense_zones:
+  - { name: ADMIN, vlan: 10, address: 10.50.10.1 }
+  - { name: SERVEURS, vlan: 20, address: 10.50.20.1 }
+  - { name: POSTES, vlan: 30, address: 10.50.30.1 }
+  - { name: SAUVEGARDE, vlan: 40, address: 10.50.40.1 }
+
+# --- DHCP: only for the POSTES zone (servers have fixed addresses) ------------------
+pfsense_dhcp:
+  interface: POSTES
+  range_from: 10.50.30.100
+  range_to: 10.50.30.199
+  dns: [10.50.20.10] # DC01: workstations resolve only through the domain (X5)
+
+# --- DNS resolver: for pfSense itself, DC01 (F9), BACKUP01 and OVS (F19) -----------
+# Not on POSTES: workstations must go through DC01 (X5).
+pfsense_dns_interfaces: [ADMIN, SERVEURS, SAUVEGARDE, lo0]
+
+# --- Firewall logs to SIEM01 (F26) ------------------------------------------------
+pfsense_syslog_server: 10.50.20.30:514
+
+# --- Aliases ------------------------------------------------------------------------
+pfsense_aliases:
+  - { name: DC01, type: host, address: 10.50.20.10 }
+  - { name: FS01, type: host, address: 10.50.20.20 }
+  - { name: SIEM01, type: host, address: 10.50.20.30 }
+  - { name: ADMIN01, type: host, address: 10.50.10.10 }
+  - { name: OVS, type: host, address: 10.50.10.2 }
+  - { name: BACKUP01, type: host, address: 10.50.40.10 }
+  - { name: BACKUP_SOURCES, type: host, address: 10.50.20.10 10.50.20.20, descr: "DC01 and FS01, pulled by BACKUP01 (F15)" }
+  # "Internet" in the matrix = anything that is not a private network
+  - { name: PRIVATE_NETS, type: network, address: 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 }
+  # ADMIN01 and OVS only reach these names (notes/Automatisation Ansible.md); refreshed every 5 minutes
+  - { name: SORTIE_ADMIN, type: host, address: deb.debian.org security.debian.org github.com }
+  - { name: AD_TCP, type: port, address: "53 88 464 389 3268 445 135 49152:65535", descr: "F1 to F5" }
+  - { name: AD_UDP, type: port, address: "53 88 464 389 123", descr: "F1, F2, F3, F6" }
+  - { name: WAZUH_AGENT, type: port, address: "1514 1515" }
+  - { name: WEB, type: port, address: "80 443" }
+  - { name: ADMIN_SERVERS, type: port, address: "3389 5986", descr: "RDP, WinRM over HTTPS (F11)" }
+  - { name: SIEM_ADMIN, type: port, address: "443 22 1514 1515", descr: "Wazuh console, SSH, agent (F25)" }
+
+# --- Rules: the allowed flows of the matrix (Mission 2, section 6.1) -----------------
+# Everything else hits pfSense's default block rule, which is logged: the refused flows
+# (X1 to X8) need no rule of their own. A rule is set on the interface where traffic enters.
+# disabled: temporary rules (F21, F22), enabled only during an intervention.
+# F14 (ADMIN -> OVS) and SIEM01 <- DC01/FS01 stay inside one VLAN: they do not cross pfSense.
+# F16 (DHCP): pfSense adds its own rules on an interface with a DHCP server.
+# F20 (pfSense -> Internet): traffic from pfSense itself is not filtered by these rules.
+pfsense_rules:
+  # POSTES
+  - { name: F1-F5 AD TCP, interface: POSTES, protocol: tcp, source: NET:POSTES, destination: DC01, port: AD_TCP }
+  - { name: F1-F6 AD UDP, interface: POSTES, protocol: udp, source: NET:POSTES, destination: DC01, port: AD_UDP }
+  - { name: F7 SMB FS01, interface: POSTES, protocol: tcp, source: NET:POSTES, destination: FS01, port: 445 }
+  - { name: F8 Web, interface: POSTES, protocol: tcp, source: NET:POSTES, destination: "!PRIVATE_NETS", port: WEB }
+  - { name: F23 Wazuh agent, interface: POSTES, protocol: tcp, source: NET:POSTES, destination: SIEM01, port: WAZUH_AGENT }
+  # SERVEURS
+  - { name: F9 DNS DC01, interface: SERVEURS, protocol: tcp/udp, source: DC01, destination: IP:SERVEURS, port: 53 }
+  - { name: F9 NTP DC01, interface: SERVEURS, protocol: udp, source: DC01, destination: IP:SERVEURS, port: 123 }
+  - { name: F10 Updates, interface: SERVEURS, protocol: tcp, source: NET:SERVEURS, destination: "!PRIVATE_NETS", port: 443 }
+  # ADMIN
+  - { name: F11 RDP WinRM, interface: ADMIN, protocol: tcp, source: NET:ADMIN, destination: NET:SERVEURS, port: ADMIN_SERVERS }
+  - { name: F12 DNS DC01, interface: ADMIN, protocol: tcp/udp, source: NET:ADMIN, destination: DC01, port: 53 }
+  - { name: F13 Admin pfSense HTTPS, interface: ADMIN, protocol: tcp, source: NET:ADMIN, destination: IP:ADMIN, port: 443 }
+  - { name: F13 Admin pfSense SSH, interface: ADMIN, protocol: tcp, source: NET:ADMIN, destination: IP:ADMIN, port: 22 }
+  - { name: F18 Updates, interface: ADMIN, protocol: tcp, source: NET:ADMIN, destination: SORTIE_ADMIN, port: 443 }
+  - { name: F19 DNS OVS, interface: ADMIN, protocol: tcp/udp, source: OVS, destination: IP:ADMIN, port: 53 }
+  - { name: F21 WinRM POSTES (temporary), interface: ADMIN, protocol: tcp, source: NET:ADMIN, destination: NET:POSTES, port: 5986, disabled: true }
+  - { name: F22 SSH BACKUP01 (temporary), interface: ADMIN, protocol: tcp, source: ADMIN01, destination: BACKUP01, port: 22, disabled: true }
+  - { name: F25 SIEM01, interface: ADMIN, protocol: tcp, source: NET:ADMIN, destination: SIEM01, port: SIEM_ADMIN }
+  # SAUVEGARDE
+  - { name: F15 SMB pull, interface: SAUVEGARDE, protocol: tcp, source: BACKUP01, destination: BACKUP_SOURCES, port: 445 }
+  - { name: F17 Updates, interface: SAUVEGARDE, protocol: tcp, source: BACKUP01, destination: "!PRIVATE_NETS", port: 443 }
+  - { name: F19 DNS BACKUP01, interface: SAUVEGARDE, protocol: tcp/udp, source: BACKUP01, destination: IP:SAUVEGARDE, port: 53 }
+  - { name: F24 Wazuh agent, interface: SAUVEGARDE, protocol: tcp, source: BACKUP01, destination: SIEM01, port: WAZUH_AGENT }
+
+# Rules made by the console setup, too wide for the matrix: removed once the rules above exist.
+# The anti-lockout rule (SSH and HTTPS to 10.50.10.1 from ADMIN) is kept, as a safety net.
+pfsense_rules_removed:
+  - { name: Default allow LAN to any rule, interface: ADMIN }
+  - { name: Default allow LAN IPv6 to any rule, interface: ADMIN }

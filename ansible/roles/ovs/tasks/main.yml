@@ -45,6 +45,13 @@
       - "Interface mgmt type=internal"
     state: present
 
+- name: Bring the segment cards up (no address, switch ports)
+  ansible.builtin.template:
+    src: ports.network.j2
+    dest: /etc/systemd/network/10-ports.network
+    mode: "0644"
+  notify: Restart networkd
+
 # The OVS database keeps bridge and ports across reboots; the address must be set by networkd.
 - name: Give the management port its address
   ansible.builtin.template:

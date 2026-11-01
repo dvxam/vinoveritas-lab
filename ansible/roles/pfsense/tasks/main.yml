@@ -1,0 +1,87 @@
+---
+# pfSense: admin account, zones (VLAN + interface), DHCP, DNS resolver, logs, aliases, rules.
+# Data in host_vars/pfsense.yml. Uses the pfsensible.core collection.
+
+- name: admin account, SSH keys and password
+  pfsensible.core.pfsense_user:
+    name: admin
+    password: "{{ pfsense_admin_password_hash }}"
+    authorizedkeys: "{{ pfsense_admin_keys | join('\n') }}"
+    priv: [page-all]
+    groups: [admins]
+
+- name: Hostname, domain, time zone
+  pfsensible.core.pfsense_setup:
+    hostname: "{{ pfsense_hostname }}"
+    domain: "{{ pfsense_domain }}"
+    timezone: "{{ pfsense_timezone }}"
+
+- name: One VLAN per zone on the trunk
+  pfsensible.core.pfsense_vlan:
+    interface: "{{ pfsense_trunk }}"
+    vlan_id: "{{ item.vlan }}"
+    descr: "{{ item.name }}"
+  loop: "{{ pfsense_zones }}"
+
+# The console's LAN (em1.10) is found by its port and renamed ADMIN
+- name: One interface per zone, gateway .1 of its network
+  pfsensible.core.pfsense_interface:
+    descr: "{{ item.name }}"
+    interface: "{{ pfsense_trunk }}.{{ item.vlan }}"
+    enable: true
+    ipv4_type: static
+    ipv4_address: "{{ item.address }}"
+    ipv4_prefixlen: 24
+  loop: "{{ pfsense_zones }}"
+
+- name: DHCP server of the POSTES zone
+  pfsensible.core.pfsense_dhcp_server:
+    interface: "{{ pfsense_dhcp.interface }}"
+    enable: true
+    range_from: "{{ pfsense_dhcp.range_from }}"
+    range_to: "{{ pfsense_dhcp.range_to }}"
+    dnsserver: "{{ pfsense_dhcp.dns }}"
+    domain: "{{ pfsense_domain }}"
+
+- name: DNS resolver, on the zones allowed to use it
+  pfsensible.core.pfsense_dns_resolver:
+    state: present
+    active_interface: "{{ pfsense_dns_interfaces }}"
+
+- name: Firewall logs to SIEM01
+  pfsensible.core.pfsense_log_settings:
+    enable: true
+    remoteserver: "{{ pfsense_syslog_server }}"
+    logfilter: true
+    auth: true
+    system: true
+
+- name: Aliases (machines, networks, ports)
+  pfsensible.core.pfsense_alias:
+    name: "{{ item.name }}"
+    type: "{{ item.type }}"
+    address: "{{ item.address }}"
+    descr: "{{ item.descr | default(omit) }}"
+  loop: "{{ pfsense_aliases }}"
+
+- name: Rules of the allowed flows
+  pfsensible.core.pfsense_rule:
+    name: "{{ item.name }}"
+    interface: "{{ item.interface }}"
+    action: pass
+    protocol: "{{ item.protocol }}"
+    source: "{{ item.source }}"
+    destination: "{{ item.destination }}"
+    destination_port: "{{ item.port }}"
+    disabled: "{{ item.disabled | default(false) }}"
+  loop: "{{ pfsense_rules }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# Last, so ADMIN keeps the anti-lockout rule and F13 when they go
+- name: Remove the console's allow-all rules
+  pfsensible.core.pfsense_rule:
+    name: "{{ item.name }}"
+    interface: "{{ item.interface }}"
+    state: absent
+  loop: "{{ pfsense_rules_removed }}"

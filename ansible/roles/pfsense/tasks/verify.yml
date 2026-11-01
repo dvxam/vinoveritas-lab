@@ -1,0 +1,80 @@
+---
+# Checks on pfSense itself. Read-only: changes nothing.
+
+- name: Read the zone interfaces
+  ansible.builtin.command: ifconfig {{ pfsense_trunk }}.{{ item.vlan }}
+  loop: "{{ pfsense_zones }}"
+  register: pfsense_ifconfig
+  changed_when: false
+
+- name: Each zone has its gateway address
+  ansible.builtin.assert:
+    that: "('inet ' ~ item.item.address ~ ' ') in item.stdout"
+    fail_msg: "{{ item.item.name }} : {{ item.item.address }} absente"
+    success_msg: "{{ item.item.name }} : {{ item.item.address }} sur {{ pfsense_trunk }}.{{ item.item.vlan }}"
+  loop: "{{ pfsense_ifconfig.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Read the running services
+  ansible.builtin.command: ps -ax -o command
+  register: pfsense_ps
+  changed_when: false
+
+- name: DHCP server and DNS resolver are running
+  ansible.builtin.assert:
+    that:
+      - "'dhcpd' in pfsense_ps.stdout"
+      - "'unbound' in pfsense_ps.stdout"
+    fail_msg: "dhcpd ou unbound ne tourne pas"
+    success_msg: "dhcpd et unbound tournent"
+
+- name: Read the loaded rules
+  ansible.builtin.command: pfctl -sr
+  register: pfsense_pf_rules
+  changed_when: false
+
+# pfSense labels each rule with its description
+- name: Every enabled rule of the matrix is loaded
+  ansible.builtin.assert:
+    that: item.name in pfsense_pf_rules.stdout
+    fail_msg: "Règle absente : {{ item.name }}"
+    success_msg: "Règle chargée : {{ item.name }}"
+  loop: "{{ pfsense_rules | rejectattr('disabled', 'defined') }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Temporary rules and console allow-all rules are not loaded
+  ansible.builtin.assert:
+    that: item.name not in pfsense_pf_rules.stdout
+    fail_msg: "Règle chargée alors qu'elle ne doit pas l'être : {{ item.name }}"
+    success_msg: "Règle inactive : {{ item.name }}"
+  loop: "{{ (pfsense_rules | selectattr('disabled', 'defined')) + pfsense_rules_removed }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# Automatic outbound NAT: the rules on the WAN use the table <tonatsubnets>
+- name: Read the networks NATed on the WAN
+  ansible.builtin.command: pfctl -t tonatsubnets -T show
+  register: pfsense_pf_nat
+  changed_when: false
+
+- name: Each zone goes out through the WAN with NAT
+  ansible.builtin.assert:
+    that: "(item.address.rsplit('.', 1)[0] ~ '.0/24') in pfsense_pf_nat.stdout"
+    fail_msg: "Pas de NAT sortant pour {{ item.name }}"
+    success_msg: "NAT sortant pour {{ item.name }}"
+  loop: "{{ pfsense_zones }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Read the syslog configuration
+  ansible.builtin.command: cat /var/etc/syslog.d/pfSense.conf
+  register: pfsense_syslog
+  changed_when: false
+
+- name: Logs are sent to SIEM01
+  ansible.builtin.assert:
+    that: "pfsense_syslog_server.split(':')[0] in pfsense_syslog.stdout"
+    fail_msg: "Journaux non envoyés à {{ pfsense_syslog_server }}"
+    success_msg: "Journaux envoyés à {{ pfsense_syslog_server }}"

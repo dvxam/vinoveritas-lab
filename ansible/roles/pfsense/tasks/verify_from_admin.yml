@@ -1,0 +1,16 @@
+---
+# Checks made from ADMIN01, through pfSense's rules. Read-only.
+
+- name: pfSense administration is open from ADMIN (F13)
+  ansible.builtin.wait_for:
+    host: 10.50.10.1
+    port: "{{ item }}"
+    timeout: 5
+  loop: [22, 443]
+
+# Only OVS may use pfSense's resolver from ADMIN (F19); ADMIN01 resolves through DC01 (F12)
+- name: pfSense's DNS is closed to ADMIN01
+  ansible.builtin.command: nc -z -w 3 10.50.10.1 53
+  register: pfsense_dns_from_admin01
+  changed_when: false
+  failed_when: pfsense_dns_from_admin01.rc == 0
