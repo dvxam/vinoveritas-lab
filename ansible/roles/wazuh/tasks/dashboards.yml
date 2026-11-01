@@ -66,6 +66,7 @@
     headers:
       osd-xsrf: "true"
     body_format: form-multipart
+    remote_src: true # the file is on SIEM01, not on the machine that runs Ansible
     body:
       file:
         filename: "{{ wazuh_install_dir }}/dashboards/access-dashboard.ndjson"
