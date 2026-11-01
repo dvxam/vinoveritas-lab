@@ -1,0 +1,7 @@
+# Names of the lab VMs for the server (pve): ping, curl, ssh by name. Append to /etc/hosts, once:
+#   sudo sh -c 'cat ~/code/vinoveritas-lab/server/hosts >> /etc/hosts'
+# Only the VMs the server reaches directly (nat link). DC01, FS01 and pfSense are behind pfSense:
+# the server has no route to them, go through ADMIN01.
+192.168.206.10   admin01
+192.168.206.166  ovs        # DHCP address, may change
+192.168.206.30   siem01     # Wazuh dashboard: https://siem01

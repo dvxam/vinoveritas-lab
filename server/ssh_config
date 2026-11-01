@@ -1,0 +1,28 @@
+# SSH names for the lab VMs, for the debian account on the server (pve).
+# Include it at the top of ~/.ssh/config, once:
+#   sed -i '1i Include ~/code/vinoveritas-lab/server/ssh_config' ~/.ssh/config
+# admin01 is already in ~/.ssh/config (roles/server_access): not repeated here.
+# Addresses: NETWORK.md. OVS gets its address from DHCP: check it with `tofu -chdir=2-lab output ssh`.
+
+# --- VMs on the temporary nat link: the server is on that network, no jump ---------------
+
+Host ovs
+  HostName 192.168.206.166
+  User root
+
+Host siem01
+  HostName 192.168.206.30
+  User root
+
+# VMs are often rebuilt: accept a new host key on first contact (as inventory.yml does)
+Host ovs siem01
+  StrictHostKeyChecking accept-new
+
+# --- Behind pfSense: the server has no route to the zones, only ADMIN01 does (Mission 2) --
+
+Host pfsense
+  HostName 10.50.10.1
+  User admin
+  ProxyJump admin01
+
+# DC01 and FS01 have no SSH: administered over WinRM and RDP from ADMIN01 (flow F11).

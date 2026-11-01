@@ -99,6 +99,8 @@ ssh debian@10.99.0.1
 ssh admin01
 ```
 
+**Noms des VM sur le serveur** (`ssh ovs`, `ssh siem01`, `ssh pfsense`, `ping siem01`…) : fichiers `server/ssh_config` et `server/hosts`, à installer une fois sur le serveur (commandes en tête de chaque fichier). `admin01` est déjà connu de `~/.ssh/config` (rôle `server_access`) ; pfSense passe par ADMIN01.
+
 **ADMIN01**, en rebondissant par le serveur :
 ```bash
 ssh -J debian@10.99.0.1 root@192.168.206.10
