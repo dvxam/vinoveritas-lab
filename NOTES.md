@@ -174,6 +174,17 @@
 - Tableau de bord « Vino Veritas — Réseau » : matrice des flux bloqués (source × destination, carte de chaleur), balayages détectés (règle 100203), flux bloqués dans le temps par interface de pfSense, détail (source, destination, port, protocole). Les deux tableaux de bord sont maintenant dans une liste (`wazuh_dashboards`), importés et vérifiés en boucle.
 - Pas testé contre SIEM01 : expressions vérifiées en Python sur trois lignes (UDP, ICMP, TCP), syntaxe Ansible et JSON valides. Bruit attendu : les diffusions NetBIOS de DC01 (`10.50.20.255:138`) sont bloquées et apparaîtront dans la matrice.
 
+### 24. Script de génération d'événements (écrit, à lancer par l'utilisateur)
+- `ansible/scripts/trigger-events.sh`, lancé sur ADMIN01 depuis `ansible/` (copié par rsync) : remplit les tableaux de bord Wazuh. Scénarios, tous par défaut ou au choix :
+  - `brute` : connexions WinRM avec un mauvais mot de passe sur DC01 et FS01, comptes réels et inexistants (4625) ;
+  - `ssh` : connexions SSH avec des comptes inconnus sur OVS et ADMIN01 ;
+  - `admin` : connexion d'Administrator sur DC01 depuis ADMIN01 (4624, panneau des comptes à privilèges) ;
+  - `ad` : compte `test.alerte` créé, ajouté à Domain Admins, retiré puis supprimé (4720, 4728, 4729, 4726) ;
+  - `blocked` : SMB, LDAP et MS-SQL vers DC01 et FS01, refusés par pfSense (hors matrice depuis ADMIN) ;
+  - `scan` : 30 ports fermés de FS01 en quelques secondes (règle 100203).
+- Tout est défait à la fin ; rien ne sort du labo. Pas de verrouillage de compte (4740) : aucune stratégie de verrouillage n'est encore définie (GPO, mission 4).
+- Vérifié : syntaxe bash. Pas lancé.
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).
