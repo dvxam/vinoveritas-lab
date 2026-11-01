@@ -1,0 +1,59 @@
+---
+# Lets the server account (debian on pve) log in to this VM over SSH, with no prompt:
+# key on the server, authorized here, host key known there, short alias in ~/.ssh/config.
+
+- name: Find the home directory of the server account
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ hostvars[server_access_server].ansible_user }}"
+  delegate_to: "{{ server_access_server }}"
+  run_once: true
+
+- name: Remember the server account's key path
+  ansible.builtin.set_fact:
+    server_access_key_path: "{{ getent_passwd[hostvars[server_access_server].ansible_user][4] }}/.ssh/id_ed25519"
+
+# command does not expand ~ in its arguments: absolute path
+- name: Create an SSH key for the server account
+  ansible.builtin.command: ssh-keygen -t ed25519 -N "" -C "{{ hostvars[server_access_server].ansible_user }}@{{ server_access_server }}" -f {{ server_access_key_path }}
+  args:
+    creates: "{{ server_access_key_path }}"
+  delegate_to: "{{ server_access_server }}"
+  run_once: true
+
+- name: Read the server account's public key
+  ansible.builtin.slurp:
+    src: "{{ server_access_key_path }}.pub"
+  delegate_to: "{{ server_access_server }}"
+  run_once: true
+  register: server_access_key
+
+- name: Authorize the server key on this VM
+  ansible.posix.authorized_key:
+    user: "{{ server_access_user }}"
+    key: "{{ server_access_key.content | b64decode }}"
+
+- name: Read the host key of this VM
+  ansible.builtin.slurp:
+    src: /etc/ssh/ssh_host_ed25519_key.pub
+  register: server_access_host_key
+
+# Avoids the "authenticity of host" question on the first connection
+- name: Make this VM a known host on the server
+  ansible.builtin.known_hosts:
+    name: "{{ ansible_host }}"
+    key: "{{ ansible_host }} {{ (server_access_host_key.content | b64decode).split()[:2] | join(' ') }}"
+    path: ~/.ssh/known_hosts
+  delegate_to: "{{ server_access_server }}"
+
+- name: Add a short alias on the server (ssh {{ inventory_hostname }})
+  ansible.builtin.blockinfile:
+    path: ~/.ssh/config
+    create: true
+    mode: "0600"
+    marker: "# {mark} {{ inventory_hostname }} (managed by Ansible, roles/server_access)"
+    block: |
+      Host {{ inventory_hostname }}
+        HostName {{ ansible_host }}
+        User {{ server_access_user }}
+  delegate_to: "{{ server_access_server }}"

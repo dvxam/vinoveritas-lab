@@ -15,3 +15,12 @@ variable "ssh_public_key_path" {
   type        = string
   default     = "~/.ssh/id_ed25519.pub"
 }
+
+variable "extra_ssh_public_keys" {
+  description = "Other SSH public keys installed by cloud-init: the server account, so Ansible can run from the server"
+  type        = list(string)
+  default = [
+    # debian@pve (~/.ssh/id_ed25519.pub on the server); changes if the server is reinstalled
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN3st8rUdJhCJnsXZQY24uf2dP6Hyrm7bBVU552/UE34 debian@pve",
+  ]
+}

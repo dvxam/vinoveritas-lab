@@ -73,7 +73,7 @@ resource "libvirt_cloudinit_disk" "init" {
       groups              = ["sudo"]
       shell               = "/bin/bash"
       sudo                = "ALL=(ALL) NOPASSWD:ALL"
-      ssh_authorized_keys = [trimspace(file(pathexpand(var.ssh_public_key_path)))]
+      ssh_authorized_keys = concat([trimspace(file(pathexpand(var.ssh_public_key_path)))], var.extra_ssh_public_keys)
     }]
   })])
 

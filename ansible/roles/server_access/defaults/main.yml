@@ -1,0 +1,6 @@
+---
+# Inventory name of the server whose account gets SSH access to this VM
+server_access_server: pve
+
+# Account on this VM that the server account logs in as
+server_access_user: "{{ ansible_user }}"

@@ -78,6 +78,11 @@ Les MAC d'OVS sont dans `ansible/host_vars/ovs.yml`.
 ssh debian@10.99.0.1
 ```
 
+**ADMIN01**, depuis le serveur, connecté en `debian` (une fois `admin01.yml` lancé : clé et alias posés par Ansible) :
+```bash
+ssh admin01
+```
+
 **ADMIN01**, en rebondissant par le serveur :
 ```bash
 ssh -J debian@10.99.0.1 root@192.168.206.10

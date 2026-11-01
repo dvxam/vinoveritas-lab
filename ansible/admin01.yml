@@ -1,7 +1,9 @@
-# Configures ADMIN01: development tools, then Ansible. Run from the Mac over the tunnel:
+# Configures ADMIN01: development tools, Ansible, and SSH access from the server account.
+# Run from the Mac over the tunnel:
 #   ansible-playbook admin01.yml
 - name: Configure ADMIN01
   hosts: admin01
   roles:
     - devtools
     - admin
+    - server_access

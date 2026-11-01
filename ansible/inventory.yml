@@ -1,9 +1,19 @@
-# Machines of the lab, reached through the server (ProxyJump), over the WireGuard tunnel.
+# Machines of the lab. On the server itself (hostname pve): direct, the VMs are on its own networks.
+# From the Mac: through the server (ProxyJump), over the WireGuard tunnel.
+# accept-new: VMs are often rebuilt, their new host key is recorded on first contact.
 all:
   vars:
     ansible_user: root
-    ansible_ssh_common_args: "-o ProxyJump=debian@10.99.0.1"
+    ansible_ssh_common_args: >-
+      -o StrictHostKeyChecking=accept-new
+      {{ '' if lookup('ansible.builtin.pipe', 'hostname -s') == 'pve' else '-o ProxyJump=debian@10.99.0.1' }}
   hosts:
+    # The OVH server itself, directly through the tunnel
+    pve:
+      ansible_host: 10.99.0.1
+      ansible_user: debian
+      ansible_ssh_common_args: ""
+      ansible_connection: "{{ 'local' if lookup('ansible.builtin.pipe', 'hostname -s') == 'pve' else 'ssh' }}"
     admin01:
       # Fixed address on the temporary nat link (2-lab/vms.tf)
       ansible_host: 192.168.206.10

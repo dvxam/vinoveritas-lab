@@ -66,8 +66,13 @@
 - Playbook `ansible/admin01.yml` ; ADMIN01 ajouté à l'inventaire (`192.168.206.10`).
 - Une police Nerd Font est à installer côté Mac, dans le terminal, pour les icônes de LazyVim.
 
+### 11. Accès SSH du serveur vers ADMIN01 (écrit, pas encore lancé)
+- Rôle `server_access`, appliqué à ADMIN01 dans `admin01.yml` : clé ed25519 créée pour `debian` sur le serveur, autorisée sur ADMIN01, clé d'hôte d'ADMIN01 ajoutée aux `known_hosts` du serveur, alias `admin01` dans `~/.ssh/config`.
+- Le serveur entre dans l'inventaire Ansible sous le nom `pve` (`10.99.0.1`, compte `debian`, sans rebond).
+- Réutilisable : appliquer le rôle à une autre VM lui donne le même accès.
+
 ## À faire
-- Lancer `ansible-playbook admin01.yml` (rôles devtools et admin).
+- Lancer `ansible-playbook admin01.yml` (rôles devtools, admin et server_access).
 - Relever l'adresse DHCP d'OVS (`tofu -chdir=2-lab output ssh`) et la reporter dans `ansible/inventory.yml` si elle a changé.
 - Ajouter `192.168.206.0/24` aux `AllowedIPs` du tunnel du Mac (déjà fait pour la connexion par `-J`, pas encore pour un accès direct).
 - Remplacer `admin_user = "root"` par un compte nommé, puis reconstruire ADMIN01 et OVS.
