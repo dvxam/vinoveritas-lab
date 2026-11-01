@@ -1,0 +1,3 @@
+---
+# Zone allowed to open RDP (F11)
+windows_admin_network: 10.50.10.0/24

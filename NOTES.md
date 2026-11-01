@@ -124,7 +124,19 @@
 - Limite : certificat WinRM non vérifié (`ansible_winrm_server_cert_validation: ignore`), à remplacer par `ansible_winrm_ca_trust_path` et à signaler dans le rapport.
 - À partir d'ici, l'utilisateur lance lui-même `tofu apply` et `ansible-playbook`.
 
+### 17. FS01 (code prêt, `apply` et playbook à lancer par l'utilisateur)
+- `2-lab/windows.tf` : FS01 ajouté à la table Windows (`10.50.20.20/24` sur seg-fs, DNS = DC01, MAC `02:50:00:00:20:20`), avec un second disque de 40 Gio pour les partages (`libvirt_volume.windows_data`). `tofu plan` : 4 ressources ajoutées, DC01 inchangé.
+- Rôle commun `windows_base` (RDP ouvert au seul réseau ADMIN, F11), sorti du rôle `dc01` et utilisé par `dc01.yml` et `fs01.yml`.
+- Rôle `fs01` + `fs01.yml` : DNS vers DC01, jonction au domaine, rôles FS-FileServer et FS-Resource-Manager (quotas, filtrage de fichiers), lecteurs CD déplacés en Y: et Z: pour que le disque de données prenne D:, disque initialisé en GPT et formaté en NTFS (« Data »). `verify.yml` : membre du domaine, rôle installé, D: en NTFS, SMB à l'écoute.
+- Pas encore : les partages et les groupes AD par service (Mission 1, mesure 5).
+
+### 18. Premier lancement de `dc01.yml` (échec, corrigé)
+- Lancé depuis le serveur (`debian@pve`) : `windows_admin_password` indéfini. Deux raisons : `secrets/windows.yml` n'est pas versionné (absent du clone du serveur), et le serveur n'a pas de route vers les zones `10.50.x.x` (seul ADMIN01 en a une, par pfSense).
+- `dc01.yml` et `fs01.yml` vérifient maintenant ces deux points en premier, avec un message clair.
+- Constaté au passage sur pfSense : DC01 sort en HTTPS (F10) ; ses essais en HTTP (80) et NTP direct (123) sont bloqués et journalisés (X6). WinRM 5986 joignable depuis ADMIN01 une fois le premier démarrage de Windows terminé.
+
 ## À faire
+- FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).
 - Exporter `config.xml` de pfSense dans le dépôt (sans les secrets).
 - Passer la route par défaut d'ADMIN01 (puis des autres VM) sur pfSense, et retirer les liens nat temporaires.

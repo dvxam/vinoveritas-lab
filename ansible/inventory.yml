@@ -22,6 +22,8 @@ all:
       ansible_host: 192.168.206.166
     dc01:
       ansible_host: 10.50.20.10
+    fs01:
+      ansible_host: 10.50.20.20
     pfsense:
       # LAN on VLAN 10, only reachable through ADMIN01 (Mission 2: pfSense is administered from ADMIN)
       ansible_host: 10.50.10.1
@@ -36,6 +38,7 @@ all:
 windows:
   hosts:
     dc01:
+    fs01:
   vars:
     ansible_connection: winrm
     ansible_port: 5986

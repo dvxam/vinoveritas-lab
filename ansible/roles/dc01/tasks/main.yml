@@ -46,22 +46,3 @@
       } else {
         $Ansible.Changed = $false
       }
-
-# AD and GPO consoles are used over RDP from ADMIN01 (F11)
-- name: Allow Remote Desktop
-  ansible.windows.win_regedit:
-    path: HKLM:\System\CurrentControlSet\Control\Terminal Server
-    name: fDenyTSConnections
-    data: 0
-    type: dword
-
-- name: Open RDP to the ADMIN zone only
-  community.windows.win_firewall_rule:
-    name: Remote Desktop (ADMIN zone, F11)
-    localport: 3389
-    protocol: tcp
-    direction: in
-    action: allow
-    remoteip: "{{ dc01_admin_network }}"
-    state: present
-    enabled: true

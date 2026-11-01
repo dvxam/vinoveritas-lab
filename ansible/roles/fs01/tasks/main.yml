@@ -1,0 +1,49 @@
+---
+# FS01: member of vinoveritas.local, file server role, data disk for the shares.
+# The shares themselves (one per department, one AD group each: Mission 1, measure 5) come later.
+
+- name: Use DC01 as DNS server
+  ansible.windows.win_dns_client:
+    adapter_names: "*"
+    dns_servers: ["{{ fs01_dc }}"]
+
+- name: Join the domain
+  microsoft.ad.membership:
+    dns_domain_name: "{{ fs01_domain }}"
+    hostname: FS01
+    domain_admin_user: "Administrator@{{ fs01_domain }}"
+    domain_admin_password: "{{ windows_admin_password }}"
+    state: domain
+    reboot: true
+
+- name: Install the file server role and its tools
+  ansible.windows.win_feature:
+    name: [FS-FileServer, FS-Resource-Manager]
+    include_management_tools: true
+
+# The install ISOs took D: and E:; move the CD drives to the end so the data disk gets D:
+- name: Move the CD drives to Y and Z
+  ansible.windows.win_powershell:
+    script: |
+      $Ansible.Changed = $false
+      $letters = 'Z:', 'Y:'
+      $i = 0
+      foreach ($cd in Get-CimInstance Win32_Volume -Filter 'DriveType = 5' | Sort-Object DriveLetter -Descending) {
+        if ($cd.DriveLetter -notin $letters) {
+          Set-CimInstance -InputObject $cd -Property @{ DriveLetter = $letters[$i] }
+          $Ansible.Changed = $true
+        }
+        $i++
+      }
+
+- name: Initialise and format the data disk
+  ansible.windows.win_powershell:
+    script: |
+      $Ansible.Changed = $false
+      if (-not (Get-Volume -FileSystemLabel '{{ fs01_data_label }}' -ErrorAction SilentlyContinue)) {
+        Get-Disk | Where-Object PartitionStyle -eq 'RAW' | Select-Object -First 1 |
+          Initialize-Disk -PartitionStyle GPT -PassThru |
+          New-Partition -UseMaximumSize -DriveLetter '{{ fs01_data_letter }}' |
+          Format-Volume -FileSystem NTFS -NewFileSystemLabel '{{ fs01_data_label }}' -Confirm:$false | Out-Null
+        $Ansible.Changed = $true
+      }

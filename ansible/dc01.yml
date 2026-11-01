@@ -1,12 +1,33 @@
-# Configures DC01: AD DS, forest vinoveritas.local, DNS, time, RDP.
-# Run from ADMIN01 (WinRM 5986 through pfSense, flow F11). From the Mac:
-#   rsync -a --delete -e 'ssh -J debian@10.99.0.1' ansible/ root@192.168.206.10:vinoveritas-lab/ansible/
+# Configures DC01: RDP (windows_base), AD DS, forest vinoveritas.local, DNS, time.
+# Run from ADMIN01 (WinRM 5986 through pfSense, flow F11).
+# From the Mac:
+#   rsync -a --delete -e 'ssh -J debian@10.99.0.1' --rsync-path='mkdir -p vinoveritas-lab && rsync' ansible/ root@192.168.206.10:vinoveritas-lab/ansible/
 #   ssh -J debian@10.99.0.1 root@192.168.206.10 'cd vinoveritas-lab/ansible && ansible-playbook dc01.yml'
+# From the server (debian@pve), once secrets/ is copied there from the Mac
+# (scp -r ~/Code/vinoveritas-lab/ansible/secrets debian@10.99.0.1:code/vinoveritas-lab/ansible/):
+#   cd ~/code/vinoveritas-lab && rsync -a --delete --rsync-path='mkdir -p vinoveritas-lab && rsync' ansible/ admin01:vinoveritas-lab/ansible/
+#   ssh admin01 'cd vinoveritas-lab/ansible && ansible-playbook dc01.yml'
 - name: Configure DC01
   hosts: dc01
+  gather_facts: false
   vars_files:
     - secrets/windows.yml
+  pre_tasks:
+    # Two easy mistakes: the secret is not versioned, and only ADMIN01 has a route to the zones
+    - name: Run from ADMIN01, with secrets/windows.yml copied from the Mac
+      ansible.builtin.assert:
+        that:
+          - windows_admin_password is defined
+          - lookup('ansible.builtin.pipe', 'hostname -s') == 'admin01'
+        fail_msg: >-
+          Lancer depuis ADMIN01 (seule machine qui joint les zones par pfSense), après avoir copié
+          ansible/ depuis le Mac avec rsync (secrets/windows.yml n'est pas versionné) : voir l'en-tête de ce fichier.
+      run_once: true
+
+    - name: Gather facts
+      ansible.builtin.setup:
   roles:
+    - windows_base
     - dc01
 
 - name: Check DC01

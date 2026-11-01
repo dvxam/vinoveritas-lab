@@ -1,4 +1,4 @@
-# Windows Server 2022 VMs (DC01 for now; FS01 will go in the same map).
+# Windows Server 2022 VMs: DC01 (domain controller) and FS01 (file server).
 # Unattended install: Setup finds autounattend.xml on a small ISO of its own, which sets the
 # disk, computer name, fixed IP, Administrator password and WinRM over HTTPS.
 # The inside (AD DS, DNS...) is then configured by Ansible from ADMIN01 (flow F11).
@@ -17,6 +17,19 @@ locals {
       ip       = "10.50.20.10/24"
       gateway  = "10.50.20.1" # pfSense
       dns      = "10.50.20.1" # pfSense's resolver (F9) until DC01 is its own DNS server
+      data     = 0
+    }
+    fs01 = {
+      hostname = "FS01"
+      vcpu     = 2
+      ram      = 4096
+      disk     = 40
+      network  = "seg-fs" # access port VLAN 20 on OVS
+      mac      = "02:50:00:00:20:20"
+      ip       = "10.50.20.20/24"
+      gateway  = "10.50.20.1"
+      dns      = "10.50.20.10" # DC01, to join the domain
+      data     = 40            # second disk for the shares (D:)
     }
   }
 
@@ -120,6 +133,20 @@ resource "libvirt_volume" "windows" {
   }
 }
 
+# Data disk, for the VMs that have one (FS01: the shares)
+resource "libvirt_volume" "windows_data" {
+  for_each = { for name, vm in local.windows : name => vm if vm.data > 0 }
+
+  name          = "${each.key}-data.qcow2"
+  pool          = libvirt_pool.lab.name
+  capacity      = each.value.data
+  capacity_unit = "GiB"
+
+  target = {
+    format = { type = "qcow2" }
+  }
+}
+
 resource "libvirt_domain" "windows" {
   for_each = local.windows
 
@@ -148,7 +175,7 @@ resource "libvirt_domain" "windows" {
   devices = {
     # Disk first: empty, so the VM starts on the Windows ISO; installed, it boots on the disk.
     # By path, not as pool volumes (AppArmor, see vms.tf).
-    disks = [
+    disks = concat([
       {
         source = { file = { file = libvirt_volume.windows[each.key].path } }
         target = { bus = "sata", dev = "sda" }
@@ -166,7 +193,11 @@ resource "libvirt_domain" "windows" {
         source = { file = { file = "${libvirt_pool.lab.target.path}/${each.key}-unattend.iso" } }
         target = { bus = "sata", dev = "sdc" }
       },
-    ]
+      ], each.value.data > 0 ? [{
+        source = { file = { file = libvirt_volume.windows_data[each.key].path } }
+        target = { bus = "sata", dev = "sdd" }
+        driver = { name = "qemu", type = "qcow2" }
+    }] : [])
 
     interfaces = [{
       model  = { type = "e1000e" }

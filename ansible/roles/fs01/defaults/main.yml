@@ -1,0 +1,6 @@
+---
+fs01_domain: vinoveritas.local
+fs01_dc: 10.50.20.10 # DC01, DNS server of the domain
+# Data disk for the shares (second disk of the VM, 2-lab/windows.tf)
+fs01_data_letter: D
+fs01_data_label: Data
