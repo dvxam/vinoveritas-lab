@@ -1,0 +1,35 @@
+# Named accounts of the domain (Mission 4): work accounts per department, adm- accounts for
+# the Informatique staff. Runs ad_groups first, since accounts join the GG_ groups.
+# The list is in group_vars/windows/users.yml. Run from ADMIN01, as dc01.yml:
+#   ansible-playbook ad_users.yml
+# Initial passwords stay on ADMIN01, one file per account (changed at first logon):
+#   cat ~/.vinoveritas/ad-passwords/claire.martin
+- name: Create the accounts on DC01
+  hosts: dc01
+  gather_facts: false
+  vars_files:
+    - secrets/windows.yml
+  pre_tasks:
+    - name: Run from ADMIN01, with secrets/windows.yml copied from the Mac
+      ansible.builtin.assert:
+        that:
+          - windows_admin_password is defined
+          - lookup('ansible.builtin.pipe', 'hostname -s') == 'admin01'
+        fail_msg: >-
+          Lancer depuis ADMIN01 (seule machine qui joint les zones par pfSense), après avoir copié
+          ansible/ depuis le Mac avec rsync (secrets/windows.yml n'est pas versionné) : voir l'en-tête de dc01.yml.
+      run_once: true
+  roles:
+    - ad_groups
+    - ad_users
+
+- name: Check the accounts
+  hosts: dc01
+  gather_facts: false
+  vars_files:
+    - secrets/windows.yml
+  tasks:
+    - name: Run the checks of the ad_users role
+      ansible.builtin.include_role:
+        name: ad_users
+        tasks_from: verify

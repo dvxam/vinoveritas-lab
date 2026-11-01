@@ -1,0 +1,46 @@
+---
+# Checks on DC01: every account exists, is enabled, in its OU and its GG_ group;
+# Domain Admins holds only Administrator and the adm- accounts. Read-only.
+
+- name: Read the accounts and the members of Domain Admins
+  ansible.windows.win_powershell:
+    script: |
+      $Ansible.Changed = $false
+      [pscustomobject]@{
+        users  = @(Get-ADUser -Filter * -Properties MemberOf | ForEach-Object {
+          [pscustomobject]@{
+            login   = $_.SamAccountName
+            enabled = $_.Enabled
+            dn      = $_.DistinguishedName
+            groups  = @($_.MemberOf | ForEach-Object { (Get-ADGroup $_).Name })
+          }
+        })
+        admins = @(Get-ADGroupMember 'Domain Admins' | ForEach-Object SamAccountName | Sort-Object)
+      }
+  register: ad_users_state
+
+- name: Remember the accounts by login
+  ansible.builtin.set_fact:
+    ad_users_by_login: "{{ dict(ad_users_state.output[0].users | map(attribute='login') | zip(ad_users_state.output[0].users)) }}"
+
+- name: Each work account is enabled, in the OU and the group of its department
+  ansible.builtin.assert:
+    that:
+      - item.login in ad_users_by_login
+      - ad_users_by_login[item.login].enabled
+      - ad_users_by_login[item.login].dn is search('OU=' ~ item.department ~ ',OU=' ~ users_ou ~ ',')
+      - ('GG_' ~ item.department) in ad_users_by_login[item.login].groups
+    fail_msg: "{{ item.login }} : {{ ad_users_by_login[item.login] | default('compte absent') }}"
+    success_msg: "{{ item.login }} : actif, OU {{ item.department }}, GG_{{ item.department }}"
+  loop: "{{ users }}"
+  loop_control:
+    label: "{{ item.login }}"
+
+# The audit found users who were administrators: only Administrator (used by Ansible) and adm- accounts
+- name: Domain Admins holds only Administrator and the adm- accounts
+  ansible.builtin.assert:
+    that: ad_users_state.output[0].admins == (expected | sort)
+    fail_msg: "Domain Admins : {{ ad_users_state.output[0].admins }}, attendu {{ expected | sort }}"
+    success_msg: "Domain Admins : {{ ad_users_state.output[0].admins | join(', ') }}"
+  vars:
+    expected: "{{ ['Administrator'] + (users | selectattr('admin', 'defined') | selectattr('admin') | map(attribute='login') | map('regex_replace', '^', 'adm-') | list) }}"

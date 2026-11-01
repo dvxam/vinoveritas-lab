@@ -1,0 +1,95 @@
+---
+# Named accounts of the domain (Mission 4, R3): one per person, in the OU of their department,
+# member of the GG_ group of their department (which gives the file rights, role ad_groups).
+# The Informatique staff also get a separate adm- account for administration (measure 7, R5).
+# The list is in group_vars/windows/users.yml.
+
+- name: Every login fits in 20 characters (sAMAccountName), adm- included
+  ansible.builtin.assert:
+    that: (('adm-' ~ item.login) if item.admin | default(false) else item.login) | length <= 20
+    fail_msg: "{{ item.login }} : identifiant trop long"
+    quiet: true
+  loop: "{{ users }}"
+  loop_control:
+    label: "{{ item.login }}"
+
+# --- OUs ----------------------------------------------------------------------------------
+
+- name: Create the OU of the users
+  microsoft.ad.ou:
+    name: "{{ users_ou }}"
+    path: "{{ shares_domain_dn }}"
+    state: present
+
+- name: One OU per department
+  microsoft.ad.ou:
+    name: "{{ item }}"
+    path: "OU={{ users_ou }},{{ shares_domain_dn }}"
+    state: present
+  loop: "{{ shares_departments }}"
+
+# Apart from the work accounts: GPOs can treat them differently (no logon on workstations, Mission 4)
+- name: Create the OU of the admin accounts
+  microsoft.ad.ou:
+    name: "{{ users_admin_ou }}"
+    path: "{{ shares_domain_dn }}"
+    state: present
+
+# --- Accounts -----------------------------------------------------------------------------
+
+# Only new accounts get an expired password: an account whose user already chose a password keeps it
+- name: List the existing accounts
+  ansible.windows.win_powershell:
+    script: |
+      $Ansible.Changed = $false
+      @(Get-ADUser -Filter * | ForEach-Object SamAccountName)
+  register: ad_users_existing
+
+# The password lookup runs on ADMIN01: one file per account (mode 600), made once, then reused.
+# Letters, digits and symbols, 24 characters: meets the complexity rule of the domain.
+- name: Create the work accounts
+  microsoft.ad.user:
+    name: "{{ item.login }}"
+    sam_account_name: "{{ item.login }}"
+    upn: "{{ item.login }}@{{ users_upn_suffix }}"
+    firstname: "{{ item.first }}"
+    surname: "{{ item.last }}"
+    display_name: "{{ item.first }} {{ item.last }}"
+    description: "{{ item.title }}"
+    attributes:
+      set:
+        department: "{{ item.department }}"
+        title: "{{ item.title }}"
+    path: "OU={{ item.department }},OU={{ users_ou }},{{ shares_domain_dn }}"
+    password: "{{ lookup('ansible.builtin.password', users_password_dir ~ '/' ~ item.login, length=24, chars=['ascii_letters', 'digits', '.-_!@#%+?*']) }}"
+    update_password: on_create
+    password_expired: "{{ true if item.login not in ad_users_existing.output else omit }}"
+    groups:
+      set: ["GG_{{ item.department }}"]
+    enabled: true
+    state: present
+  loop: "{{ users }}"
+  loop_control:
+    label: "{{ item.login }} ({{ item.department }})"
+
+# Domain Admins only through these accounts: no work account is an administrator (audit finding)
+- name: Create the admin accounts of the Informatique staff
+  microsoft.ad.user:
+    name: "adm-{{ item.login }}"
+    sam_account_name: "adm-{{ item.login }}"
+    upn: "adm-{{ item.login }}@{{ users_upn_suffix }}"
+    firstname: "{{ item.first }}"
+    surname: "{{ item.last }}"
+    display_name: "{{ item.first }} {{ item.last }} (administration)"
+    description: "Compte d'administration de {{ item.first }} {{ item.last }}"
+    path: "OU={{ users_admin_ou }},{{ shares_domain_dn }}"
+    password: "{{ lookup('ansible.builtin.password', users_password_dir ~ '/adm-' ~ item.login, length=24, chars=['ascii_letters', 'digits', '.-_!@#%+?*']) }}"
+    update_password: on_create
+    password_expired: "{{ true if ('adm-' ~ item.login) not in ad_users_existing.output else omit }}"
+    groups:
+      set: [Domain Admins]
+    enabled: true
+    state: present
+  loop: "{{ users | selectattr('admin', 'defined') | selectattr('admin') }}"
+  loop_control:
+    label: "adm-{{ item.login }}"

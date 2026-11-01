@@ -142,6 +142,13 @@
 - Playbook `ansible/file_shares.yml` (depuis ADMIN01, après `dc01.yml` et `fs01.yml`) ; `verify.yml` des deux rôles : membres de chaque `DL_`, chiffrement, ABE, droits de partage exacts, NTFS sans Everyone / Users / Authenticated Users / Domain Users.
 - Pas encore : comptes utilisateurs (mission 4), audit des accès, BitLocker, clichés instantanés, quotas.
 
+### 20. Comptes du domaine (code prêt, à lancer par l'utilisateur)
+- Liste dans `ansible/group_vars/windows/users.yml`, reprise dans le nouveau brouillon de la mission 4 : 15 personnes fictives, 2 ou 3 par service, identifiant `prenom.nom` (20 caractères au plus, vérifié).
+- Rôle `ad_users` + playbook `ansible/ad_users.yml` (lance aussi `ad_groups`) : OU `Utilisateurs` avec une sous-OU par service, OU `Administrateurs` ; chaque compte dans l'OU et le `GG_` de son service ; comptes `adm-` (membres de `Domain Admins`) pour Thomas Bernard et Léa Girard.
+- Mots de passe initiaux : aléatoires, 24 caractères, un fichier par compte dans `~/.vinoveritas/ad-passwords/` sur ADMIN01 (droits 600, hors du dépôt pour survivre au `rsync --delete`), expirés à la création seulement : un compte dont l'utilisateur a choisi son mot de passe le garde.
+- `verify.yml` : chaque compte actif, dans son OU et son `GG_` ; `Domain Admins` ne contient qu'`Administrator` et les comptes `adm-`.
+- Pas encore : GPO interdisant aux `adm-` l'ouverture de session sur les postes.
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).
@@ -156,3 +163,4 @@
 - Ansible sur ADMIN01 : cloud-init doit installer Ansible et cloner ce dépôt.
 - SIEM01 : ajouter l'hôte à `inventory.yml`, puis `ansible-playbook siem01.yml`. Le rôle `wazuh` reçoit aussi le syslog de pfSense (F26) : bloc `<remote>` ajouté à `ossec.conf` (514/udp, seule `10.50.20.1` acceptée), vérifié par `verify.yml` ; écrit mais pas encore lancé.
 - Partages : `ansible-playbook file_shares.yml` depuis ADMIN01, après `dc01.yml` et `fs01.yml`.
+- Comptes : `ansible-playbook ad_users.yml` depuis ADMIN01, après `dc01.yml`.

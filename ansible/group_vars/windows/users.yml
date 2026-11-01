@@ -1,0 +1,30 @@
+---
+# Accounts of the domain (Mission 4). Fictitious people, 2 or 3 per department.
+# login: sAMAccountName, prenom.nom without accents, 20 characters at most (adm- included).
+# admin: true = also gets a separate adm-<login> account, member of Domain Admins (measure 7, R5).
+# Keep it identical to the draft "Mission 4 - Brouillon", section "Comptes".
+
+users_ou: Utilisateurs     # one sub-OU per department under it
+users_admin_ou: Administrateurs
+users_upn_suffix: vinoveritas.local
+
+# Initial passwords: random, made on the machine that runs Ansible (ADMIN01), outside the
+# repository so that the rsync from the Mac does not delete them. Changed at first logon.
+users_password_dir: "{{ lookup('ansible.builtin.env', 'HOME') }}/.vinoveritas/ad-passwords"
+
+users:
+  - { login: helene.garnier, first: Hélène, last: Garnier, department: Direction, title: Directrice générale }
+  - { login: paul.lefevre, first: Paul, last: Lefèvre, department: Direction, title: Directeur administratif et financier }
+  - { login: sophie.morel, first: Sophie, last: Morel, department: RH, title: Responsable RH }
+  - { login: julien.fabre, first: Julien, last: Fabre, department: RH, title: Gestionnaire paie }
+  - { login: claire.martin, first: Claire, last: Martin, department: Comptabilite, title: Responsable comptable }
+  - { login: nicolas.roux, first: Nicolas, last: Roux, department: Comptabilite, title: Comptable fournisseurs }
+  - { login: emilie.faure, first: Émilie, last: Faure, department: Comptabilite, title: Comptable clients }
+  - { login: thomas.bernard, first: Thomas, last: Bernard, department: Informatique, title: Responsable informatique, admin: true }
+  - { login: lea.girard, first: Léa, last: Girard, department: Informatique, title: Technicienne systèmes et réseaux, admin: true }
+  - { login: antoine.durand, first: Antoine, last: Durand, department: Commercial, title: Directeur commercial }
+  - { login: camille.petit, first: Camille, last: Petit, department: Commercial, title: Commerciale grands comptes }
+  - { login: hugo.lambert, first: Hugo, last: Lambert, department: Commercial, title: Commercial export }
+  - { login: marc.blanc, first: Marc, last: Blanc, department: Logistique, title: Responsable logistique }
+  - { login: ines.robin, first: Inès, last: Robin, department: Logistique, title: Préparatrice de commandes }
+  - { login: lucas.chevalier, first: Lucas, last: Chevalier, department: Logistique, title: Chef de chai }
