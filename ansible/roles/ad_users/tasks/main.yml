@@ -64,8 +64,10 @@
     password: "{{ lookup('ansible.builtin.password', users_password_dir ~ '/' ~ item.login, length=24, chars=['ascii_letters', 'digits', '.-_!@#%+?*']) }}"
     update_password: on_create
     password_expired: "{{ true if item.login not in ad_users_existing.output else omit }}"
+    # Domain Users is the primary group of every account: left out of the list, the module tries
+    # to remove it at every run (refused by Windows, but reported as a change)
     groups:
-      set: ["GG_{{ item.department }}"]
+      set: ["GG_{{ item.department }}", Domain Users]
     enabled: true
     state: present
   loop: "{{ users }}"
@@ -87,7 +89,7 @@
     update_password: on_create
     password_expired: "{{ true if ('adm-' ~ item.login) not in ad_users_existing.output else omit }}"
     groups:
-      set: [Domain Admins]
+      set: [Domain Admins, Domain Users]
     enabled: true
     state: present
   loop: "{{ users | selectattr('admin', 'defined') | selectattr('admin') }}"

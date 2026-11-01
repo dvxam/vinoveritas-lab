@@ -4,6 +4,7 @@
 
 - name: Read the accounts and the members of Domain Admins
   ansible.windows.win_powershell:
+    depth: 4 # default 2 turns the nested objects (one per account or share) into strings
     script: |
       $Ansible.Changed = $false
       [pscustomobject]@{
@@ -39,7 +40,7 @@
 # The audit found users who were administrators: only Administrator (used by Ansible) and adm- accounts
 - name: Domain Admins holds only Administrator and the adm- accounts
   ansible.builtin.assert:
-    that: ad_users_state.output[0].admins == (expected | sort)
+    that: (ad_users_state.output[0].admins | sort) == (expected | sort) # PowerShell and Jinja sort case differently
     fail_msg: "Domain Admins : {{ ad_users_state.output[0].admins }}, attendu {{ expected | sort }}"
     success_msg: "Domain Admins : {{ ad_users_state.output[0].admins | join(', ') }}"
   vars:

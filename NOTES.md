@@ -142,12 +142,17 @@
 - Playbook `ansible/file_shares.yml` (depuis ADMIN01, après `dc01.yml` et `fs01.yml`) ; `verify.yml` des deux rôles : membres de chaque `DL_`, chiffrement, ABE, droits de partage exacts, NTFS sans Everyone / Users / Authenticated Users / Domain Users.
 - Pas encore : comptes utilisateurs (mission 4), audit des accès, BitLocker, clichés instantanés, quotas.
 
-### 20. Comptes du domaine (code prêt, à lancer par l'utilisateur)
+### 20. Comptes du domaine (lancé et vérifié)
 - Liste dans `ansible/group_vars/windows/users.yml`, reprise dans le nouveau brouillon de la mission 4 : 15 personnes fictives, 2 ou 3 par service, identifiant `prenom.nom` (20 caractères au plus, vérifié).
 - Rôle `ad_users` + playbook `ansible/ad_users.yml` (lance aussi `ad_groups`) : OU `Utilisateurs` avec une sous-OU par service, OU `Administrateurs` ; chaque compte dans l'OU et le `GG_` de son service ; comptes `adm-` (membres de `Domain Admins`) pour Thomas Bernard et Léa Girard.
 - Mots de passe initiaux : aléatoires, 24 caractères, un fichier par compte dans `~/.vinoveritas/ad-passwords/` sur ADMIN01 (droits 600, hors du dépôt pour survivre au `rsync --delete`), expirés à la création seulement : un compte dont l'utilisateur a choisi son mot de passe le garde.
 - `verify.yml` : chaque compte actif, dans son OU et son `GG_` ; `Domain Admins` ne contient qu'`Administrator` et les comptes `adm-`.
 - Pas encore : GPO interdisant aux `adm-` l'ouverture de session sur les postes.
+- Lancé depuis ADMIN01 : OU, groupes `GG_` et `DL_`, 15 comptes et 2 comptes `adm-` créés. Trois corrections :
+  - contrôle : `win_powershell` ne sérialise que 2 niveaux par défaut, la liste des comptes arrivait en texte → `depth: 4` (même correction dans le contrôle de `file_shares`) ;
+  - chaque passage ressortait `changed` : `groups.set` essayait de retirer `Domain Users`, groupe principal de chaque compte → ajouté à la liste ;
+  - comparaison de `Domain Admins` : PowerShell et Jinja ne trient pas les majuscules pareil → tri des deux côtés dans Jinja.
+- Second passage : `changed=0`, tous les contrôles passent.
 
 ### 21. Agents Wazuh (code prêt, à lancer par l'utilisateur)
 - Constaté sur SIEM01 : Wazuh 4.14.9, ports 1514 et 1515 ouverts, inscription des agents sans mot de passe, seul l'agent local (`000`) présent. Pas de route vers les autres zones : la route par défaut passe par nat, les réponses aux agents d'ADMIN01 et d'OVS se perdraient. Le syslog de pfSense (514/udp) n'écoute pas encore : bloc écrit (étape SIEM01), rôle pas relancé.
@@ -199,7 +204,6 @@
 - Ansible sur ADMIN01 : cloud-init doit installer Ansible et cloner ce dépôt.
 - SIEM01 : relancer `ansible-playbook siem01.yml` (route vers les zones, syslog de pfSense). Le rôle `wazuh` reçoit aussi le syslog de pfSense (F26) : bloc `<remote>` ajouté à `ossec.conf` (514/udp, seule `10.50.20.1` acceptée), vérifié par `verify.yml` ; écrit mais pas encore lancé.
 - Partages : `ansible-playbook file_shares.yml` depuis ADMIN01, après `dc01.yml` et `fs01.yml`.
-- Comptes : `ansible-playbook ad_users.yml` depuis ADMIN01, après `dc01.yml`.
 - Agents Wazuh, dans l'ordre : `siem01.yml`, `ovs.yml`, `pfsense.yml` (alias F18), puis `wazuh_agents.yml --limit admin01,ovs` (Mac ou serveur) et `wazuh_agents.yml --limit windows` (ADMIN01).
 - Tableau de bord : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.
 - Journaux pfSense et tableau de bord « Réseau » : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.

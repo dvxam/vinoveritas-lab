@@ -4,6 +4,7 @@
 
 - name: Read the SMB server settings and the shares
   ansible.windows.win_powershell:
+    depth: 4 # default 2 turns the nested objects (one per account or share) into strings
     parameters:
       Names: "{{ shares | map(attribute='name') | list }}"
       Domain: "{{ shares_domain_netbios }}"
