@@ -159,6 +159,13 @@
 - `siem01` ajouté à `inventory.yml` (`192.168.206.30`).
 - Pas encore : mot de passe d'inscription des agents, pare-feu nftables de SIEM01 (mission 2), agents de CLIENT01 et BACKUP01 (machines pas encore créées).
 
+### 22. Premier tableau de bord Wazuh (code prêt, à lancer par l'utilisateur)
+- « Vino Veritas — Accès et identités », dans le menu *Dashboards* de Wazuh. Cinq panneaux : échecs de connexion dans le temps par machine (R3), comptes en échec avec adresse source (R3), comptes verrouillés (4740), connexions des comptes `adm-*` et `Administrator` avec adresse source et type (R5 : seulement depuis ADMIN01), changements sensibles dans l'AD (4720, 4722, 4724, 4728, 4732, 4756). Comptes machine (`$`) exclus. Dernières 24 h, rafraîchi chaque minute.
+- Recoupe les trois scénarios de détection de la mission 7 : force brute, compte admin hors d'ADMIN01, ajout à Domain Admins.
+- Export `roles/wazuh/templates/access-dashboard.ndjson.j2` (objets enregistrés d'OpenSearch Dashboards), généré par un script ; seul l'identifiant du modèle d'index `wazuh-alerts-*` est une variable, lue sur SIEM01.
+- Rôle `wazuh`, `dashboards.yml` : mot de passe `admin` lu dans `wazuh-install-files.tar` sur SIEM01 (`no_log`, jamais dans le dépôt ; `-e wazuh_dashboard_password=...` s'il a été changé), import par l'API (`_import?overwrite=true`) quand le fichier change. `verify.yml` : le tableau de bord existe.
+- Pas testé contre SIEM01 : syntaxe vérifiée, JSON valide. Pas encore : panneau des flux bloqués par pfSense (décodage du syslog à vérifier), tableau de bord « Accès aux données sensibles » (audit des fichiers de FS01).
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).
@@ -175,3 +182,4 @@
 - Partages : `ansible-playbook file_shares.yml` depuis ADMIN01, après `dc01.yml` et `fs01.yml`.
 - Comptes : `ansible-playbook ad_users.yml` depuis ADMIN01, après `dc01.yml`.
 - Agents Wazuh, dans l'ordre : `siem01.yml`, `ovs.yml`, `pfsense.yml` (alias F18), puis `wazuh_agents.yml --limit admin01,ovs` (Mac ou serveur) et `wazuh_agents.yml --limit windows` (ADMIN01).
+- Tableau de bord : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.

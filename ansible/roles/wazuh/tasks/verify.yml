@@ -59,3 +59,22 @@
     that: ("via " ~ wazuh_zones_gateway) in wazuh_route.stdout
     fail_msg: "Pas de route vers 10.50.0.0/16 par {{ wazuh_zones_gateway }} : {{ wazuh_route.stdout }}"
     success_msg: "Zones jointes par pfSense ({{ wazuh_route.stdout }})"
+
+- name: Get the dashboard admin password
+  ansible.builtin.include_tasks: dashboard_password.yml
+
+- name: Ask for the dashboard "Accès et identités"
+  ansible.builtin.uri:
+    url: https://127.0.0.1/api/saved_objects/dashboard/vv-access-identities
+    url_username: admin
+    url_password: "{{ wazuh_api_password }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: wazuh_access_dashboard
+  failed_when: false
+
+- name: The dashboard "Accès et identités" exists
+  ansible.builtin.assert:
+    that: wazuh_access_dashboard.status == 200
+    fail_msg: "Tableau de bord absent (HTTP {{ wazuh_access_dashboard.status }})"
+    success_msg: "Tableau de bord « {{ wazuh_access_dashboard.json.attributes.title }} » présent"

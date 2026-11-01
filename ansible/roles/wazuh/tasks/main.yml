@@ -88,3 +88,6 @@
         </remote>
       </ossec_config>
   notify: Restart wazuh-manager
+
+- name: Import the dashboards
+  ansible.builtin.include_tasks: dashboards.yml
