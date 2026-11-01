@@ -54,9 +54,9 @@ variable "server_hostname" {
 # --- Packages ---------------------------------------------------------------------
 
 variable "packages" {
-  description = "Debian packages installed on the server (convenience tools)"
+  description = "Debian packages installed on the server (convenience tools, Ansible for tests)"
   type        = list(string)
-  default     = ["tree", "neovim"]
+  default     = ["tree", "neovim", "ansible"]
 }
 
 # --- WireGuard --------------------------------------------------------------------

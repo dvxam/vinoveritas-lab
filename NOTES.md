@@ -54,6 +54,12 @@
 - Problème rencontré : le cache APT de l'image est vide, donc le mode simulation (`--check`) ne trouve pas le paquet. Une vraie exécution met le cache à jour.
 - Vérifié après redémarrage : `ovs-vsctl show` affiche `br0` avec les 8 ports et leurs VLAN ; `mgmt` a son adresse. Les segments sont `DOWN` tant qu'aucune VM n'y est branchée.
 
+### 9. Ansible sur le serveur
+- Ajouté à la liste `packages` de `1-server/` (`variables.tf`) : `tree`, `neovim`, `ansible`. Installé par `tofu apply` (provisioner `apt`) ; `install_debian` reste à `false`, donc aucune réinstallation.
+- Version : `ansible` 12.0.0 (Debian 13), `ansible-core` 2.19.11. Vérifié par `ansible --version` ; `tofu plan` ensuite : « No changes ».
+- Décision : Ansible tourne **à la fois** sur le serveur (tests) et sur ADMIN01 (démonstration du rapport). La note *Automatisation Ansible* le précise.
+- Non fait : les collections `ansible.windows` et `microsoft.ad` ne sont pas installées sur le serveur.
+
 ## À faire
 - Relever l'adresse DHCP d'OVS (`tofu -chdir=2-lab output ssh`) et la reporter dans `ansible/inventory.yml` si elle a changé.
 - Ajouter `192.168.206.0/24` aux `AllowedIPs` du tunnel du Mac (déjà fait pour la connexion par `-J`, pas encore pour un accès direct).
