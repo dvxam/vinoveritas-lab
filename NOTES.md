@@ -86,6 +86,15 @@
   - Avant de trouver la cause, Cockpit est passé à la version de `trixie-backports` (368, cockpit-machines 357) : même plantage, ce n'était pas la cause. La version des backports est gardée, comme le conseille le projet Cockpit pour Debian.
   - Vérifié : le bus de session existe, `org.libvirt` répond sur le bus de session et sur le bus système, plus de plantage. Ces mises à jour ont aussi exercé la désinstallation (purge par la ressource OpenTofu), qui fonctionne.
 
+### 13. SIEM01 et rôle Wazuh (VM créée, Wazuh pas encore installé)
+- VM dans un fichier à part, `2-lab/siem01.tf` (sans toucher à `vms.tf`) : Debian 13, 4 vCPU, 8 Gio, 50 Gio, dimensionnement Wazuh pour 1 à 25 agents. `10.50.20.30/24` sur seg-siem, `192.168.206.30/24` sur nat avec la route par défaut (temporaire, comme ADMIN01). MAC `02:50:00:00:20:30` et `:31`.
+- Rôle `wazuh` + playbook `ansible/siem01.yml` : assistant d'installation officiel (`wazuh-install.sh -a`, version 4.14), lancé une fois (`creates` sur `wazuh-install-files.tar`), en tâche de fond (10 à 20 min). Puis dépôt APT Wazuh désactivé (conseil Wazuh : pas de mise à jour partielle) et services activés. `verify.yml` : services, ports 443, 1514, 1515, 9200, 55000, page de connexion du tableau de bord.
+- Choix : l'assistant plutôt que les rôles `wazuh-ansible` (lourds, à télécharger depuis GitHub).
+- Debian 13 absente de la liste des systèmes recommandés par Wazuh : option `-i` (`wazuh_ignore_check`), à signaler dans le rapport.
+- Le mot de passe admin du tableau de bord reste sur SIEM01 (`/root/wazuh-install-files.tar`), jamais dans le dépôt.
+- `tofu apply` fait : SIEM01 tourne. `inventory.yml` n'est pas encore modifié : ajouter `siem01` (`ansible_host: 192.168.206.30`).
+- Premier lancement du playbook interrompu pendant l'installation des outils (apt), avant l'assistant : rien de Wazuh sur la VM.
+
 ## À faire
 - Définir le mot de passe de `debian` (`ssh debian@10.99.0.1 sudo passwd debian`) pour se connecter à Cockpit.
 - Lancer `ansible-playbook admin01.yml` (rôles devtools, admin et server_access).
@@ -96,3 +105,4 @@
 - Pare-feu de l'hôte : SSH est encore ouvert sur l'IP publique (clé seule).
 - Mettre à jour la note *Labo chez OVH avec Proxmox et Terraform* : elle décrit encore Proxmox et Packer, et le dépôt d'infra.
 - Ansible sur ADMIN01 : cloud-init doit installer Ansible et cloner ce dépôt.
+- SIEM01 : ajouter l'hôte à `inventory.yml`, puis `ansible-playbook siem01.yml`.

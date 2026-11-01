@@ -1,0 +1,38 @@
+---
+# Checks on the running Wazuh: services, listening ports, dashboard answering.
+# Read-only: changes nothing on the machine.
+
+- name: Read the state of the services
+  ansible.builtin.service_facts:
+
+- name: Every Wazuh service is running
+  ansible.builtin.assert:
+    that: ansible_facts.services[item ~ '.service'].state | default('absent') == 'running'
+    fail_msg: "{{ item }} : {{ ansible_facts.services[item ~ '.service'].state | default('absent') }}"
+    success_msg: "{{ item }} tourne"
+  loop: "{{ wazuh_services }}"
+
+# The indexer can take a minute to open its port after a reboot
+- name: Every Wazuh port is listening
+  ansible.builtin.wait_for:
+    port: "{{ item.port }}"
+    timeout: 120
+  loop: "{{ wazuh_ports }}"
+  loop_control:
+    label: "{{ item.port }} ({{ item.what }})"
+
+# Self-signed certificate made by the assistant: not checked here, the test is "the dashboard answers"
+- name: Ask the dashboard for its login page
+  ansible.builtin.uri:
+    url: https://127.0.0.1/app/login
+    validate_certs: false
+    status_code: [200, 302]
+  register: wazuh_dashboard
+  retries: 10
+  delay: 15
+  until: wazuh_dashboard is succeeded
+
+- name: The dashboard answers
+  ansible.builtin.assert:
+    that: wazuh_dashboard.status in [200, 302]
+    success_msg: "Tableau de bord Wazuh joignable (HTTP {{ wazuh_dashboard.status }})"

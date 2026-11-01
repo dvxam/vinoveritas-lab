@@ -41,6 +41,7 @@ Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaqu
 | Mac | Poste d'administration | `10.99.0.2` (tunnel) | — | — |
 | pve | Serveur OVH, hyperviseur ; Cockpit sur `10.99.0.1:9090` | `51.161.128.8` (public), `10.99.0.1` (tunnel), `192.168.206.1` (lab-nat) | `debian` (sudo) ; root refusé | `1-server/` |
 | ADMIN01 | Poste d'administration du labo (VLAN 10) | `10.50.10.10` (seg-admin), `192.168.206.10` (nat, temporaire) | `root` (`admin_user`) | `2-lab/` |
+| SIEM01 | Wazuh tout-en-un (VLAN 20) — VM créée, Wazuh pas encore installé | `10.50.20.30` (seg-siem), `192.168.206.30` (nat, temporaire) | `root` (`admin_user`) | `2-lab/siem01.tf` |
 | OVS | Commutateur Open vSwitch | `192.168.206.165` (nat, DHCP, temporaire) ; `10.50.10.2` (mgmt, VLAN 10) ; ports sans adresse sur les 7 segments | `root` (`admin_user`) | `2-lab/` |
 
 - L'adresse d'OVS vient du DHCP : la valeur à jour est donnée par `tofu -chdir=2-lab output ssh`.
@@ -51,6 +52,8 @@ Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaqu
 |---|---|---|---|
 | ADMIN01 | seg-admin | `02:50:00:00:10:10` | — |
 | ADMIN01 | nat | `02:50:00:00:10:11` | — |
+| SIEM01 | seg-siem | `02:50:00:00:20:30` | — |
+| SIEM01 | nat | `02:50:00:00:20:31` | — |
 | OVS | nat | `02:50:00:00:01:00` | enp1s0 |
 | OVS | seg-trunk | `02:50:00:00:01:01` | enp8s0 |
 | OVS | seg-admin | `02:50:00:00:01:10` | enp2s0 |

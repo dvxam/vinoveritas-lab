@@ -1,0 +1,20 @@
+# Installs Wazuh on SIEM01 (all-in-one: indexer, manager, dashboard). Run from the Mac over the tunnel,
+# from the server, or later from ADMIN01:
+#   ansible-playbook siem01.yml
+# The admin password of the dashboard stays on SIEM01, never in this repository:
+#   sudo tar -O -xf /root/wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt
+- name: Install Wazuh
+  hosts: siem01
+  become: true
+  roles:
+    - wazuh
+
+# Checks the result. Second play, as in ovs.yml.
+- name: Check Wazuh
+  hosts: siem01
+  become: true
+  tasks:
+    - name: Run the checks of the wazuh role
+      ansible.builtin.include_role:
+        name: wazuh
+        tasks_from: verify

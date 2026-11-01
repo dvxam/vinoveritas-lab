@@ -1,0 +1,24 @@
+---
+# Wazuh release line: the installation assistant installs the latest patch of it
+wazuh_version: "4.14"
+
+# Where the assistant runs and leaves wazuh-install-files.tar (certificates and passwords)
+wazuh_install_dir: /root
+
+# Debian 13 is not in Wazuh's list of recommended systems: without -i (--ignore-check)
+# the assistant stops before installing. Set to false once Debian 13 is listed.
+wazuh_ignore_check: true
+
+# Services of the all-in-one install
+wazuh_services:
+  - wazuh-indexer
+  - wazuh-manager
+  - wazuh-dashboard
+
+# Ports checked by verify.yml, all on 0.0.0.0 by default
+wazuh_ports:
+  - { port: 443, what: "dashboard (HTTPS)" }
+  - { port: 1514, what: "agents, events" }
+  - { port: 1515, what: "agents, registration" }
+  - { port: 9200, what: "indexer" }
+  - { port: 55000, what: "manager API" }

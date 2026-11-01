@@ -1,0 +1,47 @@
+---
+# Wazuh all-in-one (indexer, manager, dashboard) with the official installation assistant.
+# The assistant creates the certificates and passwords itself; it runs once, then the role
+# only checks that the services are up. To reinstall: run the assistant with -u, delete
+# wazuh-install-files.tar, run the playbook again.
+
+- name: Install the tools the assistant needs
+  ansible.builtin.apt:
+    name:
+      - curl
+      - tar
+      - gnupg
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# Wazuh publishes no checksum for this script: it comes over HTTPS from packages.wazuh.com
+- name: Download the Wazuh installation assistant {{ wazuh_version }}
+  ansible.builtin.get_url:
+    url: "https://packages.wazuh.com/{{ wazuh_version }}/wazuh-install.sh"
+    dest: "{{ wazuh_install_dir }}/wazuh-install.sh"
+    mode: "0700"
+
+# Takes 10 to 20 minutes: run in the background, checked every 30 s, so SSH does not time out.
+# wazuh-install-files.tar is written at the end: its presence means "already installed".
+- name: Install Wazuh (indexer, manager, dashboard on this machine)
+  ansible.builtin.command: bash wazuh-install.sh -a {{ '-i' if wazuh_ignore_check else '' }}
+  args:
+    chdir: "{{ wazuh_install_dir }}"
+    creates: "{{ wazuh_install_dir }}/wazuh-install-files.tar"
+  async: 3600
+  poll: 30
+
+# Advice from Wazuh: an apt upgrade must not upgrade the indexer, manager and dashboard
+# separately. Upgrades are done on purpose, by re-enabling the repository.
+- name: Disable the Wazuh repository
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list.d/wazuh.list
+    regexp: "^deb "
+    replace: "#deb "
+
+- name: Start the Wazuh services now and at boot
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop: "{{ wazuh_services }}"
