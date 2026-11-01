@@ -1,0 +1,18 @@
+---
+# Account that gets the Neovim configuration
+devtools_user: "{{ ansible_user }}"
+
+devtools_packages:
+  - git
+  - tmux
+  - tree
+  - curl
+  - unzip
+  - build-essential # C compiler for nvim-treesitter
+  - ripgrep         # search in LazyVim
+  - fd-find         # file finder in LazyVim
+  - fzf
+
+# Debian 13 ships Neovim 0.10, LazyVim needs 0.11.2 or later: official release instead
+devtools_neovim_version: v0.12.6
+devtools_neovim_sha256: 474430d53e6264f6d6dd18db42d6dc9df3a1b56ca9e88a325bbf860e1a811d87

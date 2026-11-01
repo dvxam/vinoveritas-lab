@@ -60,7 +60,14 @@
 - Décision : Ansible tourne **à la fois** sur le serveur (tests) et sur ADMIN01 (démonstration du rapport). La note *Automatisation Ansible* le précise.
 - Non fait : les collections `ansible.windows` et `microsoft.ad` ne sont pas installées sur le serveur.
 
+### 10. Rôles devtools et admin pour ADMIN01 (écrits, pas encore lancés)
+- `devtools`, réutilisable sur d'autres VM : git, tmux, tree, ripgrep, fd, fzf, compilateur C ; Neovim 0.12.6 (version officielle, somme SHA-256 vérifiée), car Debian 13 fournit 0.10.4 alors que LazyVim demande au moins 0.11.2 ; starter LazyVim copié une fois dans `~/.config/nvim`, puis plugins installés sans ouvrir Neovim.
+- `admin`, propre à ADMIN01 : Ansible, git, collection `openvswitch.openvswitch` 2.2.2.
+- Playbook `ansible/admin01.yml` ; ADMIN01 ajouté à l'inventaire (`192.168.206.10`).
+- Une police Nerd Font est à installer côté Mac, dans le terminal, pour les icônes de LazyVim.
+
 ## À faire
+- Lancer `ansible-playbook admin01.yml` (rôles devtools et admin).
 - Relever l'adresse DHCP d'OVS (`tofu -chdir=2-lab output ssh`) et la reporter dans `ansible/inventory.yml` si elle a changé.
 - Ajouter `192.168.206.0/24` aux `AllowedIPs` du tunnel du Mac (déjà fait pour la connexion par `-J`, pas encore pour un accès direct).
 - Remplacer `admin_user = "root"` par un compte nommé, puis reconstruire ADMIN01 et OVS.

@@ -1,0 +1,81 @@
+---
+# Development tools: packages, Neovim (official release) and the LazyVim starter.
+
+- name: Install the development packages
+  ansible.builtin.apt:
+    name: "{{ devtools_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# Debian names the binary fdfind; LazyVim looks for fd
+- name: Make fd available under its usual name
+  ansible.builtin.file:
+    src: /usr/bin/fdfind
+    dest: /usr/local/bin/fd
+    state: link
+
+- name: Download Neovim {{ devtools_neovim_version }}
+  ansible.builtin.get_url:
+    url: "https://github.com/neovim/neovim/releases/download/{{ devtools_neovim_version }}/nvim-linux-x86_64.tar.gz"
+    dest: "/opt/nvim-{{ devtools_neovim_version }}.tar.gz"
+    checksum: "sha256:{{ devtools_neovim_sha256 }}"
+    mode: "0644"
+
+- name: Create the Neovim directory
+  ansible.builtin.file:
+    path: "/opt/nvim-{{ devtools_neovim_version }}"
+    state: directory
+    mode: "0755"
+
+- name: Unpack Neovim
+  ansible.builtin.unarchive:
+    src: "/opt/nvim-{{ devtools_neovim_version }}.tar.gz"
+    dest: "/opt/nvim-{{ devtools_neovim_version }}"
+    remote_src: true
+    extra_opts: ["--strip-components=1"]
+    creates: "/opt/nvim-{{ devtools_neovim_version }}/bin/nvim"
+
+- name: Put nvim in the PATH
+  ansible.builtin.file:
+    src: "/opt/nvim-{{ devtools_neovim_version }}/bin/nvim"
+    dest: /usr/local/bin/nvim
+    state: link
+
+- name: Find the home directory of {{ devtools_user }}
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ devtools_user }}"
+
+- name: Remember the home directory
+  ansible.builtin.set_fact:
+    devtools_home: "{{ getent_passwd[devtools_user][4] }}"
+
+# The starter is copied once, then belongs to the user: never overwritten
+- name: Check for an existing Neovim configuration
+  ansible.builtin.stat:
+    path: "{{ devtools_home }}/.config/nvim"
+  register: devtools_nvim_config
+
+- name: Copy the LazyVim starter
+  ansible.builtin.git:
+    repo: https://github.com/LazyVim/starter
+    dest: "{{ devtools_home }}/.config/nvim"
+    depth: 1
+  become: true
+  become_user: "{{ devtools_user }}"
+  when: not devtools_nvim_config.stat.exists
+
+- name: Detach the configuration from the starter repository
+  ansible.builtin.file:
+    path: "{{ devtools_home }}/.config/nvim/.git"
+    state: absent
+  when: not devtools_nvim_config.stat.exists
+
+# Without this, the first nvim launch downloads every plugin
+- name: Install the LazyVim plugins
+  ansible.builtin.command: nvim --headless "+Lazy! sync" +qa
+  args:
+    creates: "{{ devtools_home }}/.local/share/nvim/lazy/lazy.nvim"
+  become: true
+  become_user: "{{ devtools_user }}"

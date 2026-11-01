@@ -1,0 +1,7 @@
+---
+# Account that runs Ansible on ADMIN01
+admin_user: "{{ ansible_user }}"
+
+# Collections used by the playbooks of this repository
+admin_collections:
+  - openvswitch.openvswitch:2.2.2

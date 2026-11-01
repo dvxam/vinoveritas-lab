@@ -1,0 +1,25 @@
+---
+# ADMIN01 runs the playbooks of this repository: Ansible and its collections.
+
+- name: Install Ansible
+  ansible.builtin.apt:
+    name:
+      - ansible
+      - git
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Find the home directory of {{ admin_user }}
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ admin_user }}"
+
+# name:version -> directory of the collection, used to skip what is already installed
+- name: Install the Ansible collections
+  ansible.builtin.command: ansible-galaxy collection install {{ item }}
+  args:
+    creates: "{{ getent_passwd[admin_user][4] }}/.ansible/collections/ansible_collections/{{ item.split(':')[0] | replace('.', '/') }}"
+  become: true
+  become_user: "{{ admin_user }}"
+  loop: "{{ admin_collections }}"
