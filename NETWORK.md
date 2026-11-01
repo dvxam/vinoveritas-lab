@@ -2,7 +2,7 @@
 
 Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaque machine ajoutée.
 
-*Dernière mise à jour : 1er novembre 2026. ADMIN01 et OVS tournent ; OVS est configuré par `ansible/` (pont `br0`, ports VLAN, `mgmt`).*
+*Dernière mise à jour : 1er novembre 2026. ADMIN01 et OVS tournent ; OVS est configuré par `ansible/` (pont `br0`, ports VLAN, `mgmt`). Cockpit installé sur le serveur, joignable par le tunnel.*
 
 ## Schéma
 
@@ -15,6 +15,7 @@ Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaqu
 │ Serveur OVH « pve » — Debian 13, KVM/libvirt                            │
 │                                                                         │
 │   wg0      10.99.0.1  ◄─────── tunnel WireGuard ───────┐                │
+│            Cockpit https://10.99.0.1:9090 (tunnel)     │                │
 │   lab-nat  192.168.206.1  (passerelle, DHCP, DNS)      │                │
 │      │                                                 │                │
 │      ├── ADMIN01  192.168.206.10  (lien temporaire)    │                │
@@ -38,7 +39,7 @@ Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaqu
 | Machine | Rôle | Adresse(s) | Compte SSH | Créée par |
 |---|---|---|---|---|
 | Mac | Poste d'administration | `10.99.0.2` (tunnel) | — | — |
-| pve | Serveur OVH, hyperviseur | `51.161.128.8` (public), `10.99.0.1` (tunnel), `192.168.206.1` (lab-nat) | `debian` (sudo) ; root refusé | `1-server/` |
+| pve | Serveur OVH, hyperviseur ; Cockpit sur `10.99.0.1:9090` | `51.161.128.8` (public), `10.99.0.1` (tunnel), `192.168.206.1` (lab-nat) | `debian` (sudo) ; root refusé | `1-server/` |
 | ADMIN01 | Poste d'administration du labo (VLAN 10) | `10.50.10.10` (seg-admin), `192.168.206.10` (nat, temporaire) | `root` (`admin_user`) | `2-lab/` |
 | OVS | Commutateur Open vSwitch | `192.168.206.165` (nat, DHCP, temporaire) ; `10.50.10.2` (mgmt, VLAN 10) ; ports sans adresse sur les 7 segments | `root` (`admin_user`) | `2-lab/` |
 
@@ -97,6 +98,12 @@ ssh root@192.168.206.10
 ```bash
 ssh -J debian@10.99.0.1 root@192.168.206.165
 ```
+
+**Cockpit** (interface web du serveur et des VM, console graphique dans le navigateur), par le tunnel uniquement :
+```
+https://10.99.0.1:9090
+```
+Compte `debian`, avec son mot de passe (défini une fois par `ssh debian@10.99.0.1 sudo passwd debian` ; SSH reste en clé seule). Certificat auto-signé : accepter l'avertissement du navigateur. Pour regarder et démarrer ou arrêter les VM, pas pour les créer ou les modifier (c'est le rôle de `2-lab/`). Installé par `1-server/cockpit.tf`, qui explique comment l'enlever.
 
 **Console d'une VM** (si SSH ne répond pas), depuis le serveur, `Ctrl+]` pour quitter :
 ```bash

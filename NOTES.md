@@ -71,7 +71,17 @@
 - Le serveur entre dans l'inventaire Ansible sous le nom `pve` (`10.99.0.1`, compte `debian`, sans rebond).
 - Réutilisable : appliquer le rôle à une autre VM lui donne le même accès.
 
+### 12. Cockpit sur le serveur
+- But : une interface graphique pour voir les VM et ouvrir leur console dans le navigateur (utile pour installer pfSense et les Windows).
+- Tout est dans `1-server/cockpit.tf` (variables, ressource, sortie) et `1-server/scripts/cockpit.sh.tftpl`. Interrupteur `cockpit_enabled` : `false` puis `tofu apply` désinstalle Cockpit du serveur ; on supprime ensuite les deux fichiers.
+- Paquets `cockpit-ws`, `cockpit-bridge`, `cockpit-system`, `cockpit-machines`, **sans les recommandés** : le paquet `cockpit` aurait installé NetworkManager, alors que le réseau est géré par systemd-networkd.
+- Écoute **uniquement sur `10.99.0.1:9090`** (surcharge de `cockpit.socket`, `FreeBind` pour démarrer avant `wg0`).
+- Connexion avec le mot de passe de `debian`, qui n'en avait pas : à définir à la main (`sudo passwd debian`), pour ne pas mettre de secret dans l'état OpenTofu. SSH refuse les mots de passe (`PasswordAuthentication no`, vérifié), donc ce mot de passe n'ouvre pas SSH.
+- Règle : Cockpit sert à regarder et à démarrer ou arrêter les VM ; créer ou modifier une VM reste le rôle de `2-lab/`.
+- Vérifié : `ss` montre l'écoute sur `10.99.0.1:9090` seulement ; HTTP 200 par le tunnel, rien sur l'IP publique ; NetworkManager absent.
+
 ## À faire
+- Définir le mot de passe de `debian` (`ssh debian@10.99.0.1 sudo passwd debian`) pour se connecter à Cockpit.
 - Lancer `ansible-playbook admin01.yml` (rôles devtools, admin et server_access).
 - Relever l'adresse DHCP d'OVS (`tofu -chdir=2-lab output ssh`) et la reporter dans `ansible/inventory.yml` si elle a changé.
 - Ajouter `192.168.206.0/24` aux `AllowedIPs` du tunnel du Mac (déjà fait pour la connexion par `-J`, pas encore pour un accès direct).

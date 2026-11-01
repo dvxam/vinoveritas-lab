@@ -1,0 +1,35 @@
+#!/bin/bash
+# Cockpit on the lab server, reachable only through the WireGuard tunnel.
+# Template rendered and run as root by 1-server/cockpit.tf. Safe to re-run.
+set -euo pipefail
+
+# --- Values (injected by Terraform) -------------------------------------------
+ADDRESS="${address}"
+PORT="${port}"
+
+log() {
+  echo "[cockpit] $*"
+}
+
+log "Packages"
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+# No recommends: the "cockpit" metapackage would pull NetworkManager, which must not
+# take over the network (systemd-networkd). Only the base and the VM page.
+apt-get install -y --no-install-recommends \
+  cockpit-ws cockpit-bridge cockpit-system cockpit-machines
+
+log "Listen on $ADDRESS:$PORT only (tunnel), not on the public address"
+# FreeBind: the socket starts even if wg0 is not up yet at boot
+mkdir -p /etc/systemd/system/cockpit.socket.d
+cat > /etc/systemd/system/cockpit.socket.d/listen.conf <<UNIT
+[Socket]
+ListenStream=
+ListenStream=$ADDRESS:$PORT
+FreeBind=yes
+UNIT
+systemctl daemon-reload
+systemctl enable cockpit.socket
+systemctl restart cockpit.socket
+
+log "Done: https://$ADDRESS:$PORT (account debian, password set with: sudo passwd debian)"

@@ -6,3 +6,6 @@ install_debian = false
 
 # Mac WireGuard public key: create an empty tunnel in the WireGuard app, it shows the key.
 wg_mac_public_key = "MAC_PUBLIC_KEY_44_BASE64_CHARACTERS="
+
+# Cockpit (cockpit.tf): false uninstalls it from the server.
+# cockpit_enabled = true
