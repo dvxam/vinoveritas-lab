@@ -1,0 +1,52 @@
+# File server shares (Mission 5): access groups on DC01 (AGDLP), then shares and rights on FS01.
+# The rights matrix is in group_vars/windows/shares.yml. Needs dc01.yml and fs01.yml first.
+# Run from ADMIN01, as dc01.yml (commands at the top of that file):
+#   ansible-playbook file_shares.yml
+- name: Create the access groups on DC01
+  hosts: dc01
+  gather_facts: false
+  vars_files:
+    - secrets/windows.yml
+  pre_tasks:
+    - name: Run from ADMIN01, with secrets/windows.yml copied from the Mac
+      ansible.builtin.assert:
+        that:
+          - windows_admin_password is defined
+          - lookup('ansible.builtin.pipe', 'hostname -s') == 'admin01'
+        fail_msg: >-
+          Lancer depuis ADMIN01 (seule machine qui joint les zones par pfSense), après avoir copié
+          ansible/ depuis le Mac avec rsync (secrets/windows.yml n'est pas versionné) : voir l'en-tête de dc01.yml.
+      run_once: true
+  roles:
+    - ad_groups
+
+- name: Create the shares on FS01
+  hosts: fs01
+  gather_facts: false
+  vars_files:
+    - secrets/windows.yml
+  roles:
+    - file_shares
+
+# Checks the result, on both machines
+- name: Check the access groups
+  hosts: dc01
+  gather_facts: false
+  vars_files:
+    - secrets/windows.yml
+  tasks:
+    - name: Run the checks of the ad_groups role
+      ansible.builtin.include_role:
+        name: ad_groups
+        tasks_from: verify
+
+- name: Check the shares
+  hosts: fs01
+  gather_facts: false
+  vars_files:
+    - secrets/windows.yml
+  tasks:
+    - name: Run the checks of the file_shares role
+      ansible.builtin.include_role:
+        name: file_shares
+        tasks_from: verify

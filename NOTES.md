@@ -135,6 +135,13 @@
 - `dc01.yml` et `fs01.yml` vérifient maintenant ces deux points en premier, avec un message clair.
 - Constaté au passage sur pfSense : DC01 sort en HTTPS (F10) ; ses essais en HTTP (80) et NTP direct (123) sont bloqués et journalisés (X6). WinRM 5986 joignable depuis ADMIN01 une fois le premier démarrage de Windows terminé.
 
+### 19. Partages de FS01 (code prêt, à lancer par l'utilisateur)
+- Matrice des droits dans `ansible/group_vars/windows/shares.yml`, identique à la section 3 du brouillon de la mission 5 : 6 services (Direction, RH, Comptabilite, Informatique, Commercial, Logistique) + Commun.
+- Rôle `ad_groups` (DC01), méthode AGDLP : OU `Groupes`, un `GG_<service>` global par service, un `DL_<partage>_RW` local de domaine par partage, et un `DL_<partage>_RO` quand un autre service lit. Appartenances posées avec `members.set` : la matrice est la seule source.
+- Rôle `file_shares` (FS01) : SMB 1 désactivé, accès non chiffré refusé ; `D:\Partages` réservé aux administrateurs et à SYSTEM (héritage depuis `D:` coupé) ; un dossier par partage, NTFS Modifier pour `_RW`, Lecture et exécution pour `_RO` ; droits de partage reprenant la matrice (pas de « Tout le monde ») ; chiffrement SMB et énumération basée sur l'accès sur chaque partage.
+- Playbook `ansible/file_shares.yml` (depuis ADMIN01, après `dc01.yml` et `fs01.yml`) ; `verify.yml` des deux rôles : membres de chaque `DL_`, chiffrement, ABE, droits de partage exacts, NTFS sans Everyone / Users / Authenticated Users / Domain Users.
+- Pas encore : comptes utilisateurs (mission 4), audit des accès, BitLocker, clichés instantanés, quotas.
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).
@@ -148,3 +155,4 @@
 - Mettre à jour la note *Labo chez OVH avec Proxmox et Terraform* : elle décrit encore Proxmox et Packer, et le dépôt d'infra.
 - Ansible sur ADMIN01 : cloud-init doit installer Ansible et cloner ce dépôt.
 - SIEM01 : ajouter l'hôte à `inventory.yml`, puis `ansible-playbook siem01.yml`. Le rôle `wazuh` reçoit aussi le syslog de pfSense (F26) : bloc `<remote>` ajouté à `ossec.conf` (514/udp, seule `10.50.20.1` acceptée), vérifié par `verify.yml` ; écrit mais pas encore lancé.
+- Partages : `ansible-playbook file_shares.yml` depuis ADMIN01, après `dc01.yml` et `fs01.yml`.

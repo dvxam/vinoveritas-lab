@@ -1,0 +1,99 @@
+---
+# Shares of FS01 (Mission 5): one folder and one share per line of group_vars/windows/shares.yml,
+# rights on both levels (share and NTFS), access-based enumeration, SMB encryption.
+# Needs the DL_ groups on DC01 (role ad_groups) and the data disk D: (role fs01).
+
+# --- SMB server -------------------------------------------------------------------------
+
+# SMB 1 has no encryption and was used by WannaCry (R1). Clients that cannot encrypt are refused.
+- name: Disable SMB 1 and refuse unencrypted access
+  ansible.windows.win_powershell:
+    script: |
+      $Ansible.Changed = $false
+      $config = Get-SmbServerConfiguration
+      if ($config.EnableSMB1Protocol -or -not $config.RejectUnencryptedAccess) {
+        Set-SmbServerConfiguration -EnableSMB1Protocol $false -RejectUnencryptedAccess $true -Force
+        $Ansible.Changed = $true
+      }
+
+# --- Root folder: administrators and SYSTEM only ----------------------------------------
+
+- name: Create the root folder of the shares
+  ansible.windows.win_file:
+    path: "{{ shares_root }}"
+    state: directory
+
+# Explicit entries first: once inheritance is cut, they are the only ones left
+- name: Give administrators and SYSTEM full control of the root folder
+  ansible.windows.win_acl:
+    path: "{{ shares_root }}"
+    user: "{{ item }}"
+    rights: FullControl
+    type: allow
+    inherit: ContainerInherit, ObjectInherit
+    propagation: None
+  loop:
+    - Administrators
+    - SYSTEM
+
+# The root of D: gives Users read access and CREATOR OWNER full control: not in the shares
+- name: Cut inheritance from the root of the disk
+  ansible.windows.win_acl_inheritance:
+    path: "{{ shares_root }}"
+    state: absent
+    reorganize: false
+
+# --- One folder and one share per department --------------------------------------------
+
+- name: Create the folder of each share
+  ansible.windows.win_file:
+    path: '{{ shares_root }}\{{ item.name }}'
+    state: directory
+  loop: "{{ shares }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# Modify, not FullControl: users cannot change rights or take ownership
+- name: Give read-write access (NTFS Modify)
+  ansible.windows.win_acl:
+    path: '{{ shares_root }}\{{ item.name }}'
+    user: '{{ shares_domain_netbios }}\DL_{{ item.name }}_RW'
+    rights: Modify
+    type: allow
+    inherit: ContainerInherit, ObjectInherit
+    propagation: None
+  loop: "{{ shares }}"
+  loop_control:
+    label: "DL_{{ item.name }}_RW"
+
+- name: Give read-only access (NTFS Read and execute)
+  ansible.windows.win_acl:
+    path: '{{ shares_root }}\{{ item.name }}'
+    user: '{{ shares_domain_netbios }}\DL_{{ item.name }}_RO'
+    rights: ReadAndExecute
+    type: allow
+    inherit: ContainerInherit, ObjectInherit
+    propagation: None
+  loop: "{{ shares | selectattr('ro', 'defined') }}"
+  loop_control:
+    label: "DL_{{ item.name }}_RO"
+
+# Share rights follow the matrix too (no Everyone): the more restrictive level wins.
+# list: false = access-based enumeration, a user only sees what they can open.
+- name: Share each folder, encrypted, with access-based enumeration
+  ansible.windows.win_share:
+    name: "{{ item.name }}"
+    path: '{{ shares_root }}\{{ item.name }}'
+    description: "{{ item.data }}"
+    full: Administrators
+    change: '{{ shares_domain_netbios }}\DL_{{ item.name }}_RW'
+    read: "{{ ro_group if item.ro is defined else omit }}"
+    rule_action: set
+    encrypt: true
+    list: false
+    state: present
+  vars:
+    ro_group: '{{ shares_domain_netbios }}\DL_{{ item.name }}_RO'
+  loop: "{{ shares }}"
+  loop_control:
+    label: "{{ item.name }}"

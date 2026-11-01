@@ -1,0 +1,29 @@
+---
+# Rights matrix of the file server (Mission 5, section 3). Read by two roles:
+# ad_groups (DC01) creates the groups, file_shares (FS01) creates the shares and their rights.
+# Keep it identical to the draft "Mission 5 - Brouillon", section 3.
+
+shares_domain_netbios: VINOVERITAS
+shares_domain_dn: DC=vinoveritas,DC=local
+shares_groups_ou: Groupes # OU that holds the GG_ and DL_ groups
+
+# One global group per department: GG_<department>
+shares_departments:
+  - Direction
+  - RH
+  - Comptabilite
+  - Informatique
+  - Commercial
+  - Logistique
+
+# One share per department, plus Commun. rw / ro: departments, turned into DL_<share>_RW / DL_<share>_RO.
+# Without ro, no read-only group is created.
+shares_root: D:\Partages
+shares:
+  - { name: Direction, data: "D3, stratégie, contrats, marges", rw: [Direction] }
+  - { name: RH, data: "D1, dossiers du personnel, salaires", rw: [RH] }
+  - { name: Comptabilite, data: "D2, factures, paie, RIB fournisseurs", rw: [Comptabilite], ro: [Direction] }
+  - { name: Informatique, data: "documentation technique", rw: [Informatique] }
+  - { name: Commercial, data: "D4, fichier clients, tarifs", rw: [Commercial], ro: [Direction] }
+  - { name: Logistique, data: "D5, commandes, stocks, livraisons", rw: [Logistique], ro: [Commercial, Direction] }
+  - { name: Commun, data: "D7, documents communs", rw: "{{ shares_departments }}" }

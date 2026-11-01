@@ -1,0 +1,40 @@
+---
+# Checks on DC01: every DL_ group has exactly the GG_ members of the matrix. Read-only.
+
+- name: Read the members of the DL_ groups
+  ansible.windows.win_powershell:
+    script: |
+      $Ansible.Changed = $false
+      Get-ADGroup -Filter "Name -like 'DL_*'" | ForEach-Object {
+        [pscustomobject]@{
+          name    = $_.Name
+          members = @(Get-ADGroupMember $_ | ForEach-Object Name | Sort-Object)
+        }
+      }
+  register: ad_groups_state
+
+- name: Remember the members of each group
+  ansible.builtin.set_fact:
+    ad_groups_members: "{{ ad_groups_state.output | items2dict(key_name='name', value_name='members') }}"
+
+- name: Each read-write group has the departments of the matrix
+  ansible.builtin.assert:
+    that: (ad_groups_members[group] | default(['absent']) | sort) == (item.rw | map('regex_replace', '^', 'GG_') | sort)
+    fail_msg: "{{ group }} : {{ ad_groups_members[group] | default('absent') }}, attendu {{ item.rw | map('regex_replace', '^', 'GG_') | list }}"
+    success_msg: "{{ group }} : {{ ad_groups_members[group] | join(', ') }}"
+  vars:
+    group: "DL_{{ item.name }}_RW"
+  loop: "{{ shares }}"
+  loop_control:
+    label: "{{ group }}"
+
+- name: Each read-only group has the departments of the matrix
+  ansible.builtin.assert:
+    that: (ad_groups_members[group] | default(['absent']) | sort) == (item.ro | map('regex_replace', '^', 'GG_') | sort)
+    fail_msg: "{{ group }} : {{ ad_groups_members[group] | default('absent') }}, attendu {{ item.ro | map('regex_replace', '^', 'GG_') | list }}"
+    success_msg: "{{ group }} : {{ ad_groups_members[group] | join(', ') }}"
+  vars:
+    group: "DL_{{ item.name }}_RO"
+  loop: "{{ shares | selectattr('ro', 'defined') }}"
+  loop_control:
+    label: "{{ group }}"

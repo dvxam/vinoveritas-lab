@@ -1,0 +1,88 @@
+---
+# Checks on FS01: SMB server settings, then for each share: encryption, enumeration, share rights
+# and NTFS rights as in the matrix, and no access for everyone. Read-only.
+
+- name: Read the SMB server settings and the shares
+  ansible.windows.win_powershell:
+    parameters:
+      Names: "{{ shares | map(attribute='name') | list }}"
+      Domain: "{{ shares_domain_netbios }}"
+    script: |
+      param([string[]]$Names, [string]$Domain)
+      $Ansible.Changed = $false
+      # The audit found a NAS readable by everyone (R4): none of these may appear on a share
+      $everyone = 'Everyone', 'BUILTIN\Users', 'NT AUTHORITY\Authenticated Users', "$Domain\Domain Users"
+      $config = Get-SmbServerConfiguration
+      $shares = foreach ($name in $Names) {
+        $share = Get-SmbShare -Name $name -ErrorAction SilentlyContinue
+        if (-not $share) { continue }
+        $acl = (Get-Acl $share.Path).Access
+        [pscustomobject]@{
+          name    = $name
+          encrypt = $share.EncryptData
+          abe     = [string]$share.FolderEnumerationMode
+          access  = @(Get-SmbShareAccess -Name $name | Where-Object AccessControlType -eq 'Allow' |
+                      ForEach-Object { '{0}:{1}' -f $_.AccountName, $_.AccessRight })
+          ntfs    = @($acl | ForEach-Object { '{0}:{1}' -f $_.IdentityReference, $_.FileSystemRights })
+          open    = @($acl | Where-Object { [string]$_.IdentityReference -in $everyone } | ForEach-Object { [string]$_.IdentityReference })
+        }
+      }
+      [pscustomobject]@{
+        smb1   = $config.EnableSMB1Protocol
+        reject = $config.RejectUnencryptedAccess
+        shares = @($shares)
+      }
+  register: file_shares_state
+
+- name: Remember the state
+  ansible.builtin.set_fact:
+    file_shares_server: "{{ file_shares_state.output[0] }}"
+    file_shares_by_name: "{{ dict(file_shares_state.output[0].shares | map(attribute='name') | zip(file_shares_state.output[0].shares)) }}"
+
+- name: SMB 1 is off and unencrypted access is refused
+  ansible.builtin.assert:
+    that:
+      - not file_shares_server.smb1
+      - file_shares_server.reject
+    fail_msg: "SMB 1 : {{ file_shares_server.smb1 }}, refus du non chiffré : {{ file_shares_server.reject }}"
+    success_msg: "SMB 1 désactivé, accès non chiffré refusé"
+
+- name: Each share exists, is encrypted and uses access-based enumeration
+  ansible.builtin.assert:
+    that:
+      - item.name in file_shares_by_name
+      - file_shares_by_name[item.name].encrypt
+      - file_shares_by_name[item.name].abe == 'AccessBased'
+    fail_msg: "{{ item.name }} : {{ file_shares_by_name[item.name] | default('partage absent') }}"
+    success_msg: "{{ item.name }} : chiffré, énumération basée sur l'accès"
+  loop: "{{ shares }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# Share rights: exactly administrators, the RW group, and the RO group if any
+- name: Each share gives access to the groups of the matrix only
+  ansible.builtin.assert:
+    that: (file_shares_by_name[item.name].access | sort) == (expected | sort)
+    fail_msg: "{{ item.name }} : {{ file_shares_by_name[item.name].access }}, attendu {{ expected }}"
+    success_msg: "{{ item.name }} : {{ file_shares_by_name[item.name].access | join(', ') }}"
+  vars:
+    admins: 'BUILTIN\Administrators:Full'
+    rw: '{{ shares_domain_netbios }}\DL_{{ item.name }}_RW:Change'
+    ro: '{{ shares_domain_netbios }}\DL_{{ item.name }}_RO:Read'
+    expected: "{{ [admins, rw] + ([ro] if item.ro is defined else []) }}"
+  loop: "{{ shares }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Each folder gives Modify to its RW group, and nothing to everyone (NTFS)
+  ansible.builtin.assert:
+    that:
+      - file_shares_by_name[item.name].ntfs | select('match', (rw | regex_escape) ~ '.*Modify') | list | length > 0
+      - file_shares_by_name[item.name].open | length == 0
+    fail_msg: "{{ item.name }} : {{ file_shares_by_name[item.name].ntfs }}"
+    success_msg: "{{ item.name }} : Modifier pour DL_{{ item.name }}_RW, rien pour Everyone, Users ni Domain Users"
+  vars:
+    rw: '{{ shares_domain_netbios }}\DL_{{ item.name }}_RW:'
+  loop: "{{ shares }}"
+  loop_control:
+    label: "{{ item.name }}"

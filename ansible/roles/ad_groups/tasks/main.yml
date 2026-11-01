@@ -1,0 +1,49 @@
+---
+# Access groups of the file server, AGDLP method (Mission 5, section 2):
+# accounts -> GG_<department> (global) -> DL_<share>_RW / _RO (domain local) -> rights on FS01.
+# The matrix is in group_vars/windows/shares.yml. Accounts are added to the GG_ groups in Mission 4.
+
+- name: Create the OU of the groups
+  microsoft.ad.ou:
+    name: "{{ shares_groups_ou }}"
+    path: "{{ shares_domain_dn }}"
+    state: present
+
+- name: One global group per department
+  microsoft.ad.group:
+    name: "GG_{{ item }}"
+    scope: global
+    category: security
+    path: "OU={{ shares_groups_ou }},{{ shares_domain_dn }}"
+    description: "Comptes du service {{ item }}"
+    state: present
+  loop: "{{ shares_departments }}"
+
+# members.set: the members are exactly the matrix, a department removed from it loses its access
+- name: One read-write group per share
+  microsoft.ad.group:
+    name: "DL_{{ item.name }}_RW"
+    scope: domainlocal
+    category: security
+    path: "OU={{ shares_groups_ou }},{{ shares_domain_dn }}"
+    description: 'Lecture-écriture sur \\FS01\{{ item.name }}'
+    members:
+      set: "{{ item.rw | map('regex_replace', '^', 'GG_') | list }}"
+    state: present
+  loop: "{{ shares }}"
+  loop_control:
+    label: "DL_{{ item.name }}_RW"
+
+- name: One read-only group per share that other departments read
+  microsoft.ad.group:
+    name: "DL_{{ item.name }}_RO"
+    scope: domainlocal
+    category: security
+    path: "OU={{ shares_groups_ou }},{{ shares_domain_dn }}"
+    description: 'Lecture seule sur \\FS01\{{ item.name }}'
+    members:
+      set: "{{ item.ro | map('regex_replace', '^', 'GG_') | list }}"
+    state: present
+  loop: "{{ shares | selectattr('ro', 'defined') }}"
+  loop_control:
+    label: "DL_{{ item.name }}_RO"
