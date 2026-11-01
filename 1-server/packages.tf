@@ -3,8 +3,9 @@
 
 resource "terraform_data" "packages" {
   triggers_replace = {
-    packages = var.packages
-    install  = ovh_dedicated_server_reinstall_task.debian[*].id
+    packages    = var.packages
+    collections = "openvswitch.openvswitch==2.2.2"
+    install     = ovh_dedicated_server_reinstall_task.debian[*].id
   }
 
   connection {
@@ -18,6 +19,8 @@ resource "terraform_data" "packages" {
     inline = [
       "sudo apt-get update",
       "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${join(" ", var.packages)}",
+      # Ansible collection used by ansible/roles/ovs (not shipped by Debian)
+      "ansible-galaxy collection install openvswitch.openvswitch==2.2.2",
     ]
   }
 

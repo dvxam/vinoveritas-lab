@@ -1,0 +1,58 @@
+---
+# Checks on the running Open vSwitch: bridge, ports, VLAN tags, management address.
+# Read-only: changes nothing on the machine. Run after the configuration play,
+# so the handlers (reboot, networkd) have already run.
+
+- name: Read the ports of br0
+  ansible.builtin.command: ovs-vsctl list-ports br0
+  register: ovs_ports
+  changed_when: false
+
+- name: Every card is a port of br0
+  ansible.builtin.assert:
+    that: item.link in ovs_ports.stdout_lines
+    fail_msg: "Port {{ item.link }} absent de br0"
+    success_msg: "Port {{ item.link }} présent sur br0"
+  loop: "{{ ovs_cards }}"
+
+- name: The management port is a port of br0
+  ansible.builtin.assert:
+    that: "'mgmt' in ovs_ports.stdout_lines"
+    fail_msg: "Port mgmt absent de br0"
+    success_msg: "Port mgmt présent sur br0"
+
+# ovs-vsctl prints [] for a port without tag (the trunk towards pfSense)
+- name: Read the VLAN tag of each card
+  ansible.builtin.command: ovs-vsctl get Port {{ item.link }} tag
+  loop: "{{ ovs_cards }}"
+  register: ovs_tags
+  changed_when: false
+
+- name: Each access port carries its VLAN, and the trunk carries none
+  ansible.builtin.assert:
+    that: item.stdout == ((item.item.vlan | string) if item.item.vlan is defined else '[]')
+    fail_msg: "{{ item.item.link }} : tag {{ item.stdout }}, attendu {{ item.item.vlan | default('[]') }}"
+    success_msg: "{{ item.item.link }} : tag {{ item.stdout }} correct"
+  loop: "{{ ovs_tags.results }}"
+
+- name: Read the VLAN tag of the management port
+  ansible.builtin.command: ovs-vsctl get Port mgmt tag
+  register: ovs_mgmt_tag
+  changed_when: false
+
+- name: The management port is on its VLAN
+  ansible.builtin.assert:
+    that: ovs_mgmt_tag.stdout == (ovs_mgmt.vlan | string)
+    fail_msg: "mgmt : tag {{ ovs_mgmt_tag.stdout }}, attendu {{ ovs_mgmt.vlan }}"
+    success_msg: "mgmt : tag {{ ovs_mgmt_tag.stdout }} correct"
+
+- name: Read the address of the management interface
+  ansible.builtin.command: ip -brief address show mgmt
+  register: ovs_mgmt_addr
+  changed_when: false
+
+- name: The management interface has its address
+  ansible.builtin.assert:
+    that: (ovs_mgmt.address | regex_replace('/.*$', '')) in ovs_mgmt_addr.stdout
+    fail_msg: "mgmt sans l'adresse {{ ovs_mgmt.address }} : {{ ovs_mgmt_addr.stdout }}"
+    success_msg: "mgmt porte {{ ovs_mgmt.address }}"

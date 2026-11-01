@@ -4,3 +4,12 @@
   hosts: ovs
   roles:
     - ovs
+
+# Checks the result. Second play, so the handlers (reboot, networkd) have already run.
+- name: Check Open vSwitch
+  hosts: ovs
+  tasks:
+    - name: Run the checks of the ovs role
+      ansible.builtin.include_role:
+        name: ovs
+        tasks_from: verify
