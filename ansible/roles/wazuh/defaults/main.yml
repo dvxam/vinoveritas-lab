@@ -22,3 +22,9 @@ wazuh_ports:
   - { port: 1515, what: "agents, registration" }
   - { port: 9200, what: "indexer" }
   - { port: 55000, what: "manager API" }
+
+# Remote syslog received by the manager (flow F26): pfSense sends its firewall, system and
+# authentication logs. Only these addresses are accepted: pfSense on the SERVEURS zone.
+wazuh_syslog_port: 514
+wazuh_syslog_allowed_ips:
+  - 10.50.20.1

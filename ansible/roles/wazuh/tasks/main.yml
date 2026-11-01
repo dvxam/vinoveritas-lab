@@ -46,3 +46,23 @@
     state: started
     enabled: true
   loop: "{{ wazuh_services }}"
+
+# Wazuh reads every <ossec_config> block of the file, so this one is added at the end
+- name: Receive syslog from pfSense (F26)
+  ansible.builtin.blockinfile:
+    path: /var/ossec/etc/ossec.conf
+    marker: "<!-- {mark} syslog from pfSense (managed by Ansible, roles/wazuh) -->"
+    insertafter: EOF
+    block: |
+      <ossec_config>
+        <remote>
+          <connection>syslog</connection>
+          <port>{{ wazuh_syslog_port }}</port>
+          <protocol>udp</protocol>
+      {% for ip in wazuh_syslog_allowed_ips %}
+          <allowed-ips>{{ ip }}</allowed-ips>
+      {% endfor %}
+          <local_ip>0.0.0.0</local_ip>
+        </remote>
+      </ossec_config>
+  notify: Restart wazuh-manager

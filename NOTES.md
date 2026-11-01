@@ -126,4 +126,4 @@
 - Pare-feu de l'hôte : SSH est encore ouvert sur l'IP publique (clé seule).
 - Mettre à jour la note *Labo chez OVH avec Proxmox et Terraform* : elle décrit encore Proxmox et Packer, et le dépôt d'infra.
 - Ansible sur ADMIN01 : cloud-init doit installer Ansible et cloner ce dépôt.
-- SIEM01 : ajouter l'hôte à `inventory.yml`, puis `ansible-playbook siem01.yml`.
+- SIEM01 : ajouter l'hôte à `inventory.yml`, puis `ansible-playbook siem01.yml`. Le rôle `wazuh` reçoit aussi le syslog de pfSense (F26) : bloc `<remote>` ajouté à `ossec.conf` (514/udp, seule `10.50.20.1` acceptée), vérifié par `verify.yml` ; écrit mais pas encore lancé.

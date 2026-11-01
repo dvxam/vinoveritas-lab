@@ -36,3 +36,15 @@
   ansible.builtin.assert:
     that: wazuh_dashboard.status in [200, 302]
     success_msg: "Tableau de bord Wazuh joignable (HTTP {{ wazuh_dashboard.status }})"
+
+# UDP: wait_for cannot test it, read the listening sockets instead
+- name: Read the UDP sockets
+  ansible.builtin.command: ss -lun
+  register: wazuh_udp
+  changed_when: false
+
+- name: The manager receives syslog (F26)
+  ansible.builtin.assert:
+    that: "(':' ~ wazuh_syslog_port ~ ' ') in wazuh_udp.stdout"
+    fail_msg: "Rien n'écoute sur {{ wazuh_syslog_port }}/udp"
+    success_msg: "Syslog reçu sur {{ wazuh_syslog_port }}/udp"
