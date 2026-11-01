@@ -77,4 +77,5 @@
   ansible.builtin.assert:
     that: wazuh_access_dashboard.status == 200
     fail_msg: "Tableau de bord absent (HTTP {{ wazuh_access_dashboard.status }})"
-    success_msg: "Tableau de bord « {{ wazuh_access_dashboard.json.attributes.title }} » présent"
+    # Fixed text: Ansible evaluates success_msg even when the dashboard is missing (404, no attributes)
+    success_msg: "Tableau de bord « Accès et identités » présent"

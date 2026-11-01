@@ -42,8 +42,19 @@
     mode: "0600"
   register: wazuh_dashboard_file
 
-# Imported again only when the file changes (overwrite: the version of the repository wins).
-# To restore a dashboard deleted in the web interface: -e wazuh_dashboards_force=true
+# A first import that failed left the file in place: checking the file alone would skip the import forever
+- name: Check whether the dashboard exists
+  ansible.builtin.uri:
+    url: https://127.0.0.1/api/saved_objects/dashboard/vv-access-identities
+    url_username: admin
+    url_password: "{{ wazuh_api_password }}"
+    force_basic_auth: true
+    validate_certs: false
+  register: wazuh_dashboard_present
+  failed_when: false
+
+# Imported when the file changes or the dashboard is missing (overwrite: the version of the repository wins).
+# To restore a dashboard changed in the web interface: -e wazuh_dashboards_force=true
 - name: Import the dashboard
   ansible.builtin.uri:
     url: https://127.0.0.1/api/saved_objects/_import?overwrite=true
@@ -62,4 +73,7 @@
   register: wazuh_import
   changed_when: true
   failed_when: wazuh_import.status != 200 or not wazuh_import.json.success | default(false)
-  when: wazuh_dashboard_file.changed or wazuh_dashboards_force | default(false) | bool
+  when: >-
+    wazuh_dashboard_file.changed
+    or wazuh_dashboard_present.status != 200
+    or wazuh_dashboards_force | default(false) | bool
