@@ -4,3 +4,8 @@ Name=mgmt
 
 [Network]
 Address={{ ovs_mgmt.address }}
+
+# The other zones of the lab (SIEM01 for the Wazuh agent), through pfSense
+[Route]
+Destination=10.50.0.0/16
+Gateway={{ ovs_mgmt.gateway }}

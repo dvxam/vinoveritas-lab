@@ -20,6 +20,9 @@ all:
     ovs:
       # DHCP address on the temporary nat network: check it with `tofu -chdir=2-lab output ssh`
       ansible_host: 192.168.206.166
+    siem01:
+      # Fixed address on the temporary nat link (2-lab/siem01.tf)
+      ansible_host: 192.168.206.30
     dc01:
       ansible_host: 10.50.20.10
     fs01:

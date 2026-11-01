@@ -149,6 +149,16 @@
 - `verify.yml` : chaque compte actif, dans son OU et son `GG_` ; `Domain Admins` ne contient qu'`Administrator` et les comptes `adm-`.
 - Pas encore : GPO interdisant aux `adm-` l'ouverture de session sur les postes.
 
+### 21. Agents Wazuh (code prêt, à lancer par l'utilisateur)
+- Constaté sur SIEM01 : Wazuh 4.14.9, ports 1514 et 1515 ouverts, inscription des agents sans mot de passe, seul l'agent local (`000`) présent. Pas de route vers les autres zones : la route par défaut passe par nat, les réponses aux agents d'ADMIN01 et d'OVS se perdraient. Le syslog de pfSense (514/udp) n'écoute pas encore : bloc écrit (étape SIEM01), rôle pas relancé.
+- Rôle `wazuh` : route `10.50.0.0/16` par pfSense (`10.50.20.1`), fichier netplan `60-lab-zones.yaml` comme pour ADMIN01, vérifiée par `verify.yml`.
+- Rôle `ovs` : route `10.50.0.0/16` par `10.50.10.1` sur `mgmt` (sinon l'agent d'OVS sortirait par nat).
+- pfSense : `packages.wazuh.com` ajouté à l'alias `SORTIE_ADMIN` (F18), pour l'agent d'ADMIN01 et d'OVS une fois les liens nat retirés. Reporté dans le brouillon de la mission 2 et la note *Automatisation Ansible*.
+- Rôle `wazuh_agent` : Debian (dépôt officiel, paquet `wazuh-agent=4.14.9-1` bloqué à cette version, la même que le serveur) et Windows (MSI de `packages.wazuh.com`, SHA-256 relevée au premier téléchargement car Wazuh n'en publie pas). Adresse de SIEM01 remise dans `ossec.conf` à chaque passage. `verify.yml` : `status='connected'` dans le fichier d'état de l'agent.
+- Playbook `ansible/wazuh_agents.yml` : ADMIN01 et OVS depuis le Mac ou le serveur (`--limit admin01,ovs`), DC01 et FS01 depuis ADMIN01 (`--limit windows`). L'agent d'OVS est gardé pour l'instant (question ouverte dans le brouillon de la mission 2, F25).
+- `siem01` ajouté à `inventory.yml` (`192.168.206.30`).
+- Pas encore : mot de passe d'inscription des agents, pare-feu nftables de SIEM01 (mission 2), agents de CLIENT01 et BACKUP01 (machines pas encore créées).
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).
@@ -161,6 +171,7 @@
 - Pare-feu de l'hôte : SSH est encore ouvert sur l'IP publique (clé seule).
 - Mettre à jour la note *Labo chez OVH avec Proxmox et Terraform* : elle décrit encore Proxmox et Packer, et le dépôt d'infra.
 - Ansible sur ADMIN01 : cloud-init doit installer Ansible et cloner ce dépôt.
-- SIEM01 : ajouter l'hôte à `inventory.yml`, puis `ansible-playbook siem01.yml`. Le rôle `wazuh` reçoit aussi le syslog de pfSense (F26) : bloc `<remote>` ajouté à `ossec.conf` (514/udp, seule `10.50.20.1` acceptée), vérifié par `verify.yml` ; écrit mais pas encore lancé.
+- SIEM01 : relancer `ansible-playbook siem01.yml` (route vers les zones, syslog de pfSense). Le rôle `wazuh` reçoit aussi le syslog de pfSense (F26) : bloc `<remote>` ajouté à `ossec.conf` (514/udp, seule `10.50.20.1` acceptée), vérifié par `verify.yml` ; écrit mais pas encore lancé.
 - Partages : `ansible-playbook file_shares.yml` depuis ADMIN01, après `dc01.yml` et `fs01.yml`.
 - Comptes : `ansible-playbook ad_users.yml` depuis ADMIN01, après `dc01.yml`.
+- Agents Wazuh, dans l'ordre : `siem01.yml`, `ovs.yml`, `pfsense.yml` (alias F18), puis `wazuh_agents.yml --limit admin01,ovs` (Mac ou serveur) et `wazuh_agents.yml --limit windows` (ADMIN01).

@@ -1,0 +1,45 @@
+---
+# Debian: official Wazuh repository, package held at the manager's version.
+
+- name: Install what the repository module needs
+  ansible.builtin.apt:
+    name: python3-debian
+    state: present
+    update_cache: true
+
+- name: Add the Wazuh repository (key downloaded into /etc/apt/keyrings)
+  ansible.builtin.deb822_repository:
+    name: wazuh
+    uris: https://packages.wazuh.com/4.x/apt/
+    suites: stable
+    components: main
+    signed_by: https://packages.wazuh.com/key/GPG-KEY-WAZUH
+    state: present
+
+# WAZUH_MANAGER is read by the package at install time; the next task keeps it right afterwards
+- name: Install the agent {{ wazuh_agent_version }}
+  ansible.builtin.apt:
+    name: "wazuh-agent={{ wazuh_agent_version }}"
+    state: present
+    update_cache: true
+  environment:
+    WAZUH_MANAGER: "{{ wazuh_agent_manager }}"
+
+# An apt upgrade must not make the agent newer than the manager
+- name: Hold the agent at this version
+  ansible.builtin.dpkg_selections:
+    name: wazuh-agent
+    selection: hold
+
+- name: Point the agent to SIEM01
+  ansible.builtin.replace:
+    path: /var/ossec/etc/ossec.conf
+    regexp: "<address>.*</address>"
+    replace: "<address>{{ wazuh_agent_manager }}</address>"
+  notify: Restart the Wazuh agent (Debian)
+
+- name: Start the agent now and at boot
+  ansible.builtin.service:
+    name: wazuh-agent
+    state: started
+    enabled: true

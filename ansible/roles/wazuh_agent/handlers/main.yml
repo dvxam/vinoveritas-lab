@@ -1,0 +1,10 @@
+---
+- name: Restart the Wazuh agent (Debian)
+  ansible.builtin.service:
+    name: wazuh-agent
+    state: restarted
+
+- name: Restart the Wazuh agent (Windows)
+  ansible.windows.win_service:
+    name: WazuhSvc
+    state: restarted

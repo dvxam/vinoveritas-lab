@@ -1,0 +1,31 @@
+---
+# Checks on this machine that its agent is connected to SIEM01: the agent writes its status
+# (status='connected') in a state file. Read-only. Waits up to 2 minutes after a first start.
+
+- name: Read the state of the agent (Debian)
+  ansible.builtin.command: cat /var/ossec/var/run/wazuh-agentd.state
+  register: wazuh_agent_state_debian
+  changed_when: false
+  retries: 8
+  delay: 15
+  until: "\"status='connected'\" in wazuh_agent_state_debian.stdout"
+  failed_when: false
+  when: ansible_facts['os_family'] != 'Windows'
+
+- name: Read the state of the agent (Windows)
+  ansible.windows.win_command: cmd /c type "{{ wazuh_agent_windows_dir }}\wazuh-agent.state"
+  register: wazuh_agent_state_windows
+  changed_when: false
+  retries: 8
+  delay: 15
+  until: "\"status='connected'\" in wazuh_agent_state_windows.stdout"
+  failed_when: false
+  when: ansible_facts['os_family'] == 'Windows'
+
+- name: The agent is connected to SIEM01
+  ansible.builtin.assert:
+    that: "\"status='connected'\" in state.stdout | default('')"
+    fail_msg: "Agent non connecté à {{ wazuh_agent_manager }} : {{ state.stdout | default(state.msg | default('')) }}"
+    success_msg: "Agent connecté à SIEM01 ({{ wazuh_agent_manager }})"
+  vars:
+    state: "{{ wazuh_agent_state_windows if ansible_facts['os_family'] == 'Windows' else wazuh_agent_state_debian }}"

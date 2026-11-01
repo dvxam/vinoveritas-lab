@@ -4,6 +4,28 @@
 # only checks that the services are up. To reinstall: run the assistant with -u, delete
 # wazuh-install-files.tar, run the playbook again.
 
+# The default route still goes through the temporary nat link: without this route, the replies
+# to the agents of the other zones (ADMIN01, OVS, then CLIENT01, BACKUP01) would leave by nat
+# and never come back. Merged by netplan with the cloud-init file (same card name).
+- name: Route to the other zones through pfSense
+  ansible.builtin.copy:
+    dest: /etc/netplan/60-lab-zones.yaml
+    mode: "0600"
+    content: |
+      # Managed by Ansible (roles/wazuh). The other zones of the lab, through pfSense.
+      network:
+        version: 2
+        ethernets:
+          seg-siem:
+            routes:
+              - to: 10.50.0.0/16
+                via: {{ wazuh_zones_gateway }}
+  register: wazuh_zones_route
+
+- name: Apply the route
+  ansible.builtin.command: netplan apply
+  when: wazuh_zones_route.changed
+
 # No cache_valid_time: the cloud image has empty package lists but a recent /var/lib/apt/lists,
 # which Ansible takes for a fresh cache, so it skipped the update and found no gnupg
 - name: Install the tools the assistant needs

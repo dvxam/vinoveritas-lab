@@ -49,7 +49,7 @@ pfsense_aliases:
   # "Internet" in the matrix = anything that is not a private network
   - { name: PRIVATE_NETS, type: network, address: 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 }
   # ADMIN01 and OVS only reach these names (notes/Automatisation Ansible.md); refreshed every 5 minutes
-  - { name: SORTIE_ADMIN, type: host, address: deb.debian.org security.debian.org github.com }
+  - { name: SORTIE_ADMIN, type: host, address: deb.debian.org security.debian.org github.com packages.wazuh.com }
   - { name: AD_TCP, type: port, address: "53 88 464 389 3268 445 135 49152:65535", descr: "F1 to F5" }
   - { name: AD_UDP, type: port, address: "53 88 464 389 123", descr: "F1, F2, F3, F6" }
   - { name: WAZUH_AGENT, type: port, address: "1514 1515" }

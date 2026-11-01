@@ -1,0 +1,30 @@
+---
+# Windows: MSI from packages.wazuh.com (the servers reach it through F10, HTTPS to the Internet).
+
+- name: Download the agent {{ wazuh_agent_version }}
+  ansible.windows.win_get_url:
+    url: "{{ wazuh_agent_msi_url }}"
+    dest: 'C:\Windows\Temp\wazuh-agent-{{ wazuh_agent_version }}.msi'
+    checksum: "{{ wazuh_agent_msi_sha256 }}"
+    checksum_algorithm: sha256
+
+# WAZUH_MANAGER is written into ossec.conf by the installer; the next task keeps it right afterwards
+- name: Install the agent
+  ansible.windows.win_package:
+    path: 'C:\Windows\Temp\wazuh-agent-{{ wazuh_agent_version }}.msi'
+    arguments: /q WAZUH_MANAGER={{ wazuh_agent_manager }}
+    state: present
+
+- name: Point the agent to SIEM01
+  community.windows.win_lineinfile:
+    path: '{{ wazuh_agent_windows_dir }}\ossec.conf'
+    regex: "<address>.*</address>"
+    line: "      <address>{{ wazuh_agent_manager }}</address>"
+    backrefs: false
+  notify: Restart the Wazuh agent (Windows)
+
+- name: Start the agent now and at boot
+  ansible.windows.win_service:
+    name: WazuhSvc
+    start_mode: auto
+    state: started

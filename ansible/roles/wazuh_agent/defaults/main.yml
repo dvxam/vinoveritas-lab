@@ -1,0 +1,12 @@
+---
+# SIEM01 on VLAN 20 (Mission 2). The agents of the other zones reach it through pfSense (F23 to F25).
+wazuh_agent_manager: 10.50.20.30
+
+# Same version as the manager (an agent must not be newer): wazuh-control info on SIEM01
+wazuh_agent_version: 4.14.9-1
+
+# Windows: MSI from packages.wazuh.com. Wazuh publishes no checksum next to it:
+# SHA-256 computed on the first download (1 November 2026), so a changed file is refused.
+wazuh_agent_msi_url: "https://packages.wazuh.com/4.x/windows/wazuh-agent-{{ wazuh_agent_version }}.msi"
+wazuh_agent_msi_sha256: e3f18109d36c98c2f861f210fc6661226d99251b79321c5d7ff27821b906ea49
+wazuh_agent_windows_dir: C:\Program Files (x86)\ossec-agent

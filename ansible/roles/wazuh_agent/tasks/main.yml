@@ -1,0 +1,8 @@
+---
+# Wazuh agent: sends the logs, file integrity and inventory of this machine to SIEM01.
+# It enrols itself on SIEM01 (port 1515) on first start, then sends its events on port 1514.
+# Needs the facts (os_family) to pick the Debian or the Windows tasks.
+
+- name: Install the agent ({{ ansible_facts['os_family'] }})
+  ansible.builtin.include_tasks:
+    file: "{{ 'windows.yml' if ansible_facts['os_family'] == 'Windows' else 'debian.yml' }}"

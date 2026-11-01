@@ -1,0 +1,52 @@
+# Wazuh agents on the machines of the lab, sending to SIEM01 (Mission 7).
+#   - Debian (ADMIN01, OVS): from the Mac or the server, which reach them on the nat link:
+#       ansible-playbook wazuh_agents.yml --limit admin01,ovs
+#   - Windows (DC01, FS01): from ADMIN01, the only machine that reaches them (WinRM, F11);
+#     copy ansible/ there first (commands at the top of dc01.yml):
+#       ansible-playbook wazuh_agents.yml --limit windows
+# SIEM01 must have its route to the zones first (siem01.yml), and OVS its route on mgmt (ovs.yml).
+# pfSense has no agent: it sends syslog (F26, role wazuh).
+- name: Install the agent on the Debian machines
+  hosts: admin01:ovs
+  roles:
+    - wazuh_agent
+
+- name: Install the agent on the Windows servers
+  hosts: windows
+  gather_facts: false
+  vars_files:
+    - secrets/windows.yml
+  pre_tasks:
+    - name: Run from ADMIN01, with secrets/windows.yml copied from the Mac
+      ansible.builtin.assert:
+        that:
+          - windows_admin_password is defined
+          - lookup('ansible.builtin.pipe', 'hostname -s') == 'admin01'
+        fail_msg: >-
+          Lancer depuis ADMIN01 (seule machine qui joint les zones par pfSense), après avoir copié
+          ansible/ depuis le Mac avec rsync (secrets/windows.yml n'est pas versionné) : voir l'en-tête de dc01.yml.
+      run_once: true
+
+    - name: Gather facts
+      ansible.builtin.setup:
+  roles:
+    - wazuh_agent
+
+# Checks, once the handlers (restart of the agent) have run
+- name: Check the agents (Debian)
+  hosts: admin01:ovs
+  tasks:
+    - name: Run the checks of the wazuh_agent role
+      ansible.builtin.include_role:
+        name: wazuh_agent
+        tasks_from: verify
+
+- name: Check the agents (Windows)
+  hosts: windows
+  vars_files:
+    - secrets/windows.yml
+  tasks:
+    - name: Run the checks of the wazuh_agent role
+      ansible.builtin.include_role:
+        name: wazuh_agent
+        tasks_from: verify
