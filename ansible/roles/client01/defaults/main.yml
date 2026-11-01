@@ -1,0 +1,10 @@
+---
+client01_domain: vinoveritas.local
+# OU of the workstations: GPOs of Mission 4 (hardening, no logon for adm- accounts) target it
+client01_ou: OU=Postes,DC=vinoveritas,DC=local
+
+# The only members of the local Administrators group (audit finding: users were administrators).
+# Administrator: local account used by Ansible; Domain Admins: the adm- accounts (R5).
+client01_local_admins:
+  - Administrator
+  - VINOVERITAS\Domain Admins

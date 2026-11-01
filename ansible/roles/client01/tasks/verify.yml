@@ -1,0 +1,45 @@
+---
+# Checks on CLIENT01: member of the domain, in its OU, DNS from DHCP pointing to DC01,
+# local Administrators limited to the expected members. Read-only.
+
+- name: Read the state of CLIENT01
+  ansible.windows.win_powershell:
+    depth: 3
+    script: |
+      $Ansible.Changed = $false
+      $cs = Get-CimInstance Win32_ComputerSystem
+      # Ansible logs on as the local Administrator, which cannot query AD: the name recorded at the
+      # last Group Policy refresh (done at each boot) is read locally instead
+      $dn = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy\State\Machine' -ErrorAction SilentlyContinue).'Distinguished-Name'
+      [pscustomobject]@{
+        member = $cs.PartOfDomain
+        domain = $cs.Domain
+        dn     = [string]$dn
+        dhcp   = [bool](Get-NetIPInterface -AddressFamily IPv4 -Dhcp Enabled -ErrorAction SilentlyContinue | Where-Object ConnectionState -eq 'Connected')
+        dns    = @(Get-DnsClientServerAddress -AddressFamily IPv4 | Where-Object ServerAddresses | ForEach-Object ServerAddresses | Select-Object -Unique)
+        admins = @(Get-LocalGroupMember Administrators | ForEach-Object { $_.Name -replace '^CLIENT01\\', '' } | Sort-Object)
+      }
+  register: client01_state
+
+- name: CLIENT01 is a member of the domain, in the OU of the workstations
+  ansible.builtin.assert:
+    that:
+      - client01_state.output[0].member
+      - client01_state.output[0].domain == client01_domain
+      - client01_state.output[0].dn is search(client01_ou ~ '$')
+    fail_msg: "État inattendu : {{ client01_state.output[0] }}"
+    success_msg: "Membre de {{ client01_domain }}, dans {{ client01_ou }}"
+
+- name: Address and DNS come from DHCP, DNS is DC01
+  ansible.builtin.assert:
+    that:
+      - client01_state.output[0].dhcp
+      - client01_state.output[0].dns == ['10.50.20.10']
+    fail_msg: "DHCP {{ client01_state.output[0].dhcp }}, DNS {{ client01_state.output[0].dns }} (attendu 10.50.20.10)"
+    success_msg: "Adresse par DHCP, DNS {{ client01_state.output[0].dns | join(', ') }}"
+
+- name: Only the expected members in the local Administrators group
+  ansible.builtin.assert:
+    that: (client01_state.output[0].admins | sort) == (client01_local_admins | sort)
+    fail_msg: "Administrateurs locaux : {{ client01_state.output[0].admins }}, attendu {{ client01_local_admins }}"
+    success_msg: "Administrateurs locaux : {{ client01_state.output[0].admins | join(', ') }}"

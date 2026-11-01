@@ -29,6 +29,9 @@ pfsense_dhcp:
   range_from: 10.50.30.100
   range_to: 10.50.30.199
   dns: [10.50.20.10] # DC01: workstations resolve only through the domain (X5)
+  # Fixed lease outside the pool, so Ansible finds CLIENT01 (MAC fixed in 2-lab/client01.tf)
+  static:
+    - { name: client01, mac: "02:50:00:00:30:10", ip: 10.50.30.10 }
 
 # --- DNS resolver: for pfSense itself, DC01 (F9), BACKUP01 and OVS (F19) -----------
 # Not on POSTES: workstations must go through DC01 (X5).

@@ -197,6 +197,15 @@
 - Lancé : `dc01.yml` (depuis ADMIN01) puis `admin01.yml` (depuis le Mac). Vérifié sur ADMIN01 : `ovs` → `10.50.10.2`, `siem01` et `pfsense` résolus, `apt update` passe (DC01 → pfSense). Second passage d'`admin01.yml` : `changed=0`.
 - Reste : ADMIN01 n'a pas de clé SSH, donc `ssh ovs` depuis ADMIN01 est refusé ; SIEM01 a encore le DNS du lien nat (même correction à faire dans le rôle `wazuh`).
 
+### 24. CLIENT01 (code prêt, à lancer par l'utilisateur)
+- `2-lab/client01.tf`, à part de `windows.tf` (changer le micrologiciel de la table commune aurait recréé DC01 et FS01) : Windows 11 Enterprise en évaluation (90 jours, 24H2, ISO de l'Evaluation Center, 5,4 Go, pas de somme publiée), 2 vCPU, 4 Gio, 64 Gio (minimums de Windows 11), carte e1000e sur seg-cli (MAC `02:50:00:00:30:10`). UEFI (`firmware = "efi"`, SMM) et TPM 2.0 émulé (swtpm), exigés par Windows 11 et utiles pour BitLocker (mission 6). `tofu plan` ciblé : 5 ressources ajoutées, rien d'autre.
+- `windows/autounattend-client.xml.tftpl` : partitions GPT (EFI, MSR, Windows), adresse par DHCP, contrôle Secure Boot contourné (`LabConfig\BypassSecureBootCheck`, car il dépend du micrologiciel choisi par libvirt), pas de compte à créer dans l'OOBE (Administrator intégré activé par son mot de passe, pour Ansible seulement), puis le même `setup-winrm.ps1` que les serveurs.
+- En UEFI, l'ISO Windows attend « Press any key to boot from CD » : `terraform_data.client01_boot_key` envoie une touche chaque seconde pendant 30 s après la création de la VM (`virsh send-key`).
+- pfSense : bail DHCP fixe `10.50.30.10` pour CLIENT01, hors de la plage `.100`–`.199` (rôle `pfsense`, module `pfsense_dhcp_static`). Reporté dans le plan d'adressage de la mission 2.
+- `pfsense_temporary.yml` : active ou désactive une règle temporaire (F21, F22) avec les mêmes réglages que le rôle `pfsense` (`-e rule=F21 -e enabled=true|false`). Lancé depuis le Mac ou le serveur, car pfSense n'a pas la clé d'ADMIN01.
+- Rôle `client01` + `client01.yml` (depuis ADMIN01) : OU `Postes` sur DC01, jonction au domaine dans cette OU, groupe Administrateurs local réduit à `Administrator` et `VINOVERITAS\Domain Admins` (`state: pure`), agent Wazuh (F23). `client01.yml` s'arrête avec un message clair si F21 n'est pas activée. `verify.yml` : membre du domaine, OU, adresse et DNS par DHCP (DC01), administrateurs locaux.
+- CLIENT01 ajouté à `inventory.yml` (groupe `windows`) : `wazuh_agents.yml --limit windows` le couvre aussi.
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).
@@ -214,3 +223,4 @@
 - Agents Wazuh, dans l'ordre : `siem01.yml`, `ovs.yml`, `pfsense.yml` (alias F18), puis `wazuh_agents.yml --limit admin01,ovs` (Mac ou serveur) et `wazuh_agents.yml --limit windows` (ADMIN01).
 - Tableau de bord : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.
 - Journaux pfSense et tableau de bord « Réseau » : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.
+- CLIENT01, dans l'ordre : `pfsense.yml` (bail fixe), `tofu apply` dans `2-lab/` (crée CLIENT01, télécharge l'ISO), attendre la fin de l'installation, puis F21 activée, `client01.yml` depuis ADMIN01, F21 désactivée.

@@ -1,0 +1,20 @@
+---
+# CLIENT01: member of vinoveritas.local in the OU of the workstations, with no user in the local
+# Administrators group (Mission 1, measures 1 and 2: R1, R2). Its DNS (DC01) comes from pfSense's DHCP.
+
+- name: Join the domain, in the OU of the workstations
+  microsoft.ad.membership:
+    dns_domain_name: "{{ client01_domain }}"
+    hostname: CLIENT01
+    domain_admin_user: "Administrator@{{ client01_domain }}"
+    domain_admin_password: "{{ windows_admin_password }}"
+    domain_ou_path: "{{ client01_ou }}"
+    state: domain
+    reboot: true
+
+# pure: anyone else is removed, including a domain user added by hand
+- name: Only Administrator and Domain Admins in the local Administrators group
+  ansible.windows.win_group_membership:
+    name: Administrators
+    members: "{{ client01_local_admins }}"
+    state: pure

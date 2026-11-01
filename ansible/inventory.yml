@@ -27,6 +27,9 @@ all:
       ansible_host: 10.50.20.10
     fs01:
       ansible_host: 10.50.20.20
+    client01:
+      # Fixed DHCP lease on pfSense (host_vars/pfsense.yml); WinRM through the temporary rule F21
+      ansible_host: 10.50.30.10
     pfsense:
       # LAN on VLAN 10, only reachable through ADMIN01 (Mission 2: pfSense is administered from ADMIN)
       ansible_host: 10.50.10.1
@@ -42,6 +45,7 @@ windows:
   hosts:
     dc01:
     fs01:
+    client01:
   vars:
     ansible_connection: winrm
     ansible_port: 5986

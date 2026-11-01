@@ -1,0 +1,74 @@
+# Configures CLIENT01: domain join in the OU of the workstations, local Administrators limited,
+# Wazuh agent (F23). Run from ADMIN01, like dc01.yml (commands at the top of that file), after
+# enabling the temporary rule F21 (WinRM from ADMIN to POSTES) from the Mac or the server:
+#   ansible-playbook pfsense_temporary.yml -e rule=F21 -e enabled=true     # Mac or server
+#   ansible-playbook client01.yml                                          # ADMIN01
+#   ansible-playbook pfsense_temporary.yml -e rule=F21 -e enabled=false    # Mac or server
+# Needs dc01.yml and ad_users.yml first, and pfsense.yml for the fixed lease (10.50.30.10).
+- name: Create the OU of the workstations on DC01
+  hosts: dc01
+  gather_facts: false
+  vars_files:
+    - secrets/windows.yml
+  pre_tasks:
+    - name: Run from ADMIN01, with secrets/windows.yml copied from the Mac
+      ansible.builtin.assert:
+        that:
+          - windows_admin_password is defined
+          - lookup('ansible.builtin.pipe', 'hostname -s') == 'admin01'
+        fail_msg: >-
+          Lancer depuis ADMIN01 (seule machine qui joint les zones par pfSense), après avoir copié
+          ansible/ depuis le Mac avec rsync (secrets/windows.yml n'est pas versionné) : voir l'en-tête de dc01.yml.
+      run_once: true
+  tasks:
+    - name: OU of the workstations
+      microsoft.ad.ou:
+        name: Postes
+        path: DC=vinoveritas,DC=local
+        state: present
+
+- name: Configure CLIENT01
+  hosts: client01
+  gather_facts: false
+  vars_files:
+    - secrets/windows.yml
+  pre_tasks:
+    # F21 is disabled by default: say so instead of a 30-second WinRM timeout
+    - name: WinRM of CLIENT01 is reachable (temporary rule F21 enabled)
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 5986
+        timeout: 10
+      delegate_to: localhost
+      register: client01_winrm
+      failed_when: false
+
+    - name: Stop if F21 is not enabled
+      ansible.builtin.assert:
+        that: "'Timeout' not in client01_winrm.msg | default('')" # failed_when: false hides the failure
+        fail_msg: >-
+          WinRM de CLIENT01 injoignable : activer F21 depuis le Mac ou le serveur
+          (ansible-playbook pfsense_temporary.yml -e rule=F21 -e enabled=true), ou attendre la fin
+          de l'installation de Windows.
+        quiet: true
+
+    - name: Gather facts
+      ansible.builtin.setup:
+  roles:
+    - client01
+    - wazuh_agent
+
+- name: Check CLIENT01
+  hosts: client01
+  vars_files:
+    - secrets/windows.yml
+  tasks:
+    - name: Run the checks of the client01 role
+      ansible.builtin.include_role:
+        name: client01
+        tasks_from: verify
+
+    - name: Run the checks of the wazuh_agent role
+      ansible.builtin.include_role:
+        name: wazuh_agent
+        tasks_from: verify

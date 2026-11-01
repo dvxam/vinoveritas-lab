@@ -43,6 +43,18 @@
     dnsserver: "{{ pfsense_dhcp.dns }}"
     domain: "{{ pfsense_domain }}"
 
+- name: Fixed leases of the POSTES zone
+  pfsensible.core.pfsense_dhcp_static:
+    netif: "{{ pfsense_dhcp.interface }}"
+    name: "{{ item.name }}"
+    hostname: "{{ item.name }}"
+    macaddr: "{{ item.mac }}"
+    ipaddr: "{{ item.ip }}"
+    state: present
+  loop: "{{ pfsense_dhcp.static | default([]) }}"
+  loop_control:
+    label: "{{ item.name }} → {{ item.ip }}"
+
 - name: DNS resolver, on the zones allowed to use it
   pfsensible.core.pfsense_dns_resolver:
     state: present

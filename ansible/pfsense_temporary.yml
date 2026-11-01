@@ -1,0 +1,30 @@
+# Turns a temporary rule of pfSense on or off (Mission 2: F21 and F22 are disabled by default,
+# enabled only during an intervention). Run from the Mac or the server, like pfsense.yml:
+#   ansible-playbook pfsense_temporary.yml -e rule=F21 -e enabled=true    # before client01.yml
+#   ansible-playbook pfsense_temporary.yml -e rule=F21 -e enabled=false   # right after
+# pfsense.yml also puts them back to disabled (host_vars/pfsense.yml).
+- name: Turn a temporary rule of pfSense on or off
+  hosts: pfsense
+  gather_facts: false
+  vars:
+    temporary_rule: "{{ pfsense_rules | selectattr('name', 'match', rule ~ ' ') | selectattr('disabled', 'defined') | first | default({}) }}"
+  tasks:
+    - name: The rule is one of the temporary rules
+      ansible.builtin.assert:
+        that:
+          - rule is defined and enabled is defined
+          - temporary_rule | length > 0
+        fail_msg: "Usage : -e rule=F21 (ou F22) -e enabled=true|false ; seules les règles temporaires de host_vars/pfsense.yml sont acceptées"
+        quiet: true
+
+    # Same settings as in the pfsense role, only "disabled" changes
+    - name: "{{ 'Enable' if enabled | bool else 'Disable' }} {{ temporary_rule.name }}"
+      pfsensible.core.pfsense_rule:
+        name: "{{ temporary_rule.name }}"
+        interface: "{{ temporary_rule.interface }}"
+        action: pass
+        protocol: "{{ temporary_rule.protocol }}"
+        source: "{{ temporary_rule.source }}"
+        destination: "{{ temporary_rule.destination }}"
+        destination_port: "{{ temporary_rule.port }}"
+        disabled: "{{ not (enabled | bool) }}"
