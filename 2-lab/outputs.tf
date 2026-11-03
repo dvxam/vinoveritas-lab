@@ -1,6 +1,6 @@
 # OVS gets its nat address from DHCP: read it from the lease
 data "libvirt_domain_interface_addresses" "ovs" {
-  domain = libvirt_domain.vm["ovs"].uuid # id is the runtime number, not accepted here
+  domain = module.ovs.uuid
   source = "lease"
 }
 

@@ -47,8 +47,8 @@ Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaqu
 | CLIENT01 | Poste Windows 11 (VLAN 30) — code prêt, pas encore créé | `10.50.30.10` (seg-cli, bail DHCP fixe de pfSense) | `Administrator` (WinRM depuis ADMIN01, règle temporaire F21) | `2-lab/client01.tf` |
 | OVS | Commutateur Open vSwitch | `192.168.206.166` (nat, DHCP, temporaire) ; `10.50.10.2` (mgmt, VLAN 10) ; ports sans adresse sur les 7 segments | `root` (`admin_user`) | `2-lab/` |
 
-| DC01 | Contrôleur de domaine `vinoveritas.local`, DNS (Windows Server 2022) | `10.50.20.10` (seg-dc, VLAN 20) | `Administrator` (mot de passe dans `ansible/secrets/windows.yml`) ; WinRM 5986 et RDP depuis ADMIN | `2-lab/windows.tf` |
-| FS01 | Serveur de fichiers, membre du domaine (Windows Server 2022) | `10.50.20.20` (seg-fs, VLAN 20) | `Administrator` local, puis comptes du domaine ; WinRM 5986 et RDP depuis ADMIN | `2-lab/windows.tf` |
+| DC01 | Contrôleur de domaine `vinoveritas.local`, DNS (Windows Server 2022) | `10.50.20.10` (seg-dc, VLAN 20) | `Administrator` (mot de passe dans `ansible/secrets/windows.yml`) ; WinRM 5986 et RDP depuis ADMIN | `2-lab/dc01.tf` |
+| FS01 | Serveur de fichiers, membre du domaine (Windows Server 2022) | `10.50.20.20` (seg-fs, VLAN 20) | `Administrator` local, puis comptes du domaine ; WinRM 5986 et RDP depuis ADMIN | `2-lab/fs01.tf` |
 | pfSense | Pare-feu et routeur | `192.168.206.167` (WAN `em0`, DHCP sur nat) ; `10.50.10.1` (LAN `em1.10`, VLAN 10) | `admin` (clé SSH ; mot de passe dans `ansible/secrets/pfsense.yml`) | `2-lab/pfsense.tf` + console |
 
 - L'adresse d'OVS vient du DHCP : la valeur à jour est donnée par `tofu -chdir=2-lab output ssh`.

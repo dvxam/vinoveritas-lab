@@ -15,7 +15,7 @@ all:
       ansible_ssh_common_args: ""
       ansible_connection: "{{ 'local' if lookup('ansible.builtin.pipe', 'hostname -s') == 'pve' else 'ssh' }}"
     admin01:
-      # Fixed address on the temporary nat link (2-lab/vms.tf)
+      # Fixed address on the temporary nat link (2-lab/admin01.tf)
       ansible_host: 192.168.206.10
     ovs:
       # DHCP address on the temporary nat network: check it with `tofu -chdir=2-lab output ssh`

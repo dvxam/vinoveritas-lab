@@ -1,6 +1,6 @@
 ---
 # Common to the Windows servers: remote administration from the ADMIN zone only (F11).
-# WinRM over HTTPS is already set up at install (2-lab/windows/setup-winrm.ps1).
+# WinRM over HTTPS is already set up at install (2-lab/modules/windows_vm/templates/setup-winrm.ps1.tftpl).
 
 # AD, GPO and file server consoles are used over RDP from ADMIN01
 - name: Allow Remote Desktop

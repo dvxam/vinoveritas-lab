@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Unattended install of Windows 11 Enterprise (evaluation, English) for ${hostname}.
-  Rendered by 2-lab/client01.tf, put on a small ISO next to the Windows ISO: Setup reads it by itself.
-  Differs from the servers (autounattend.xml.tftpl): UEFI so GPT partitions, address from DHCP
-  (pfSense, POSTES zone), no Server Manager. Then WinRM over HTTPS (setup-winrm.ps1, same ISO)
-  so that Ansible takes over from ADMIN01 (flow F21, temporary).
+  Unattended install of Windows Server 2022 (English, Desktop Experience) for ${hostname}.
+  Rendered by 2-lab/modules/windows_vm (dc01.tf, fs01.tf), put on a small ISO next to the Windows ISO: Setup reads it by itself.
+  Sets: disk, edition, computer name, fixed IP, Administrator password, then WinRM over HTTPS
+  (setup-winrm.ps1, same ISO) so that Ansible takes over from ADMIN01 (flow F11).
 -->
 <unattend xmlns="urn:schemas-microsoft-com:unattend" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
   <settings pass="windowsPE">
@@ -16,15 +15,7 @@
       <UserLocale>en-US</UserLocale>
     </component>
     <component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
-      <!-- The VM has UEFI and a TPM 2.0, but Secure Boot depends on the firmware libvirt picks:
-           skip only that check -->
-      <RunSynchronous>
-        <RunSynchronousCommand wcm:action="add">
-          <Order>1</Order>
-          <Path>reg add HKLM\SYSTEM\Setup\LabConfig /v BypassSecureBootCheck /t REG_DWORD /d 1 /f</Path>
-        </RunSynchronousCommand>
-      </RunSynchronous>
-      <!-- UEFI, GPT: EFI system partition, MSR, Windows on the rest -->
+      <!-- BIOS boot, MBR: one NTFS partition on the whole disk -->
       <DiskConfiguration>
         <Disk wcm:action="add">
           <DiskID>0</DiskID>
@@ -32,16 +23,6 @@
           <CreatePartitions>
             <CreatePartition wcm:action="add">
               <Order>1</Order>
-              <Type>EFI</Type>
-              <Size>260</Size>
-            </CreatePartition>
-            <CreatePartition wcm:action="add">
-              <Order>2</Order>
-              <Type>MSR</Type>
-              <Size>16</Size>
-            </CreatePartition>
-            <CreatePartition wcm:action="add">
-              <Order>3</Order>
               <Type>Primary</Type>
               <Extend>true</Extend>
             </CreatePartition>
@@ -50,14 +31,9 @@
             <ModifyPartition wcm:action="add">
               <Order>1</Order>
               <PartitionID>1</PartitionID>
-              <Format>FAT32</Format>
-              <Label>System</Label>
-            </ModifyPartition>
-            <ModifyPartition wcm:action="add">
-              <Order>2</Order>
-              <PartitionID>3</PartitionID>
+              <Active>true</Active>
               <Format>NTFS</Format>
-              <Label>Windows</Label>
+              <Label>System</Label>
               <Letter>C</Letter>
             </ModifyPartition>
           </ModifyPartitions>
@@ -67,14 +43,14 @@
         <OSImage>
           <InstallFrom>
             <MetaData wcm:action="add">
-              <!-- Enterprise evaluation ISO: a single image -->
+              <!-- Evaluation ISO: 1 Standard Core, 2 Standard Desktop Experience, 3 and 4 Datacenter -->
               <Key>/IMAGE/INDEX</Key>
-              <Value>1</Value>
+              <Value>${image_index}</Value>
             </MetaData>
           </InstallFrom>
           <InstallTo>
             <DiskID>0</DiskID>
-            <PartitionID>3</PartitionID>
+            <PartitionID>1</PartitionID>
           </InstallTo>
         </OSImage>
       </ImageInstall>
@@ -91,6 +67,44 @@
       <ComputerName>${hostname}</ComputerName>
       <TimeZone>${timezone}</TimeZone>
     </component>
+    <!-- Server Manager does not open at logon -->
+    <component name="Microsoft-Windows-ServerManager-SvrMgrNc" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <DoNotOpenServerManagerAtLogon>true</DoNotOpenServerManagerAtLogon>
+    </component>
+    <!-- The card is found by its MAC address (fixed in dc01.tf, fs01.tf) -->
+    <component name="Microsoft-Windows-TCPIP" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <Interfaces>
+        <Interface wcm:action="add">
+          <Identifier>${mac}</Identifier>
+          <Ipv4Settings>
+            <DhcpEnabled>false</DhcpEnabled>
+          </Ipv4Settings>
+          <Ipv6Settings>
+            <DhcpEnabled>false</DhcpEnabled>
+          </Ipv6Settings>
+          <UnicastIpAddresses>
+            <IpAddress wcm:action="add" wcm:keyValue="1">${ip}</IpAddress>
+          </UnicastIpAddresses>
+          <Routes>
+            <Route wcm:action="add">
+              <Identifier>0</Identifier>
+              <Prefix>0.0.0.0/0</Prefix>
+              <NextHopAddress>${gateway}</NextHopAddress>
+            </Route>
+          </Routes>
+        </Interface>
+      </Interfaces>
+    </component>
+    <component name="Microsoft-Windows-DNS-Client" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <Interfaces>
+        <Interface wcm:action="add">
+          <Identifier>${mac}</Identifier>
+          <DNSServerSearchOrder>
+            <IpAddress wcm:action="add" wcm:keyValue="1">${dns}</IpAddress>
+          </DNSServerSearchOrder>
+        </Interface>
+      </Interfaces>
+    </component>
   </settings>
 
   <settings pass="oobeSystem">
@@ -101,13 +115,9 @@
       <UserLocale>en-US</UserLocale>
     </component>
     <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
-      <!-- No account to create in the OOBE: the built-in Administrator is enabled by its password,
-           only for Ansible; users log on with their domain account -->
       <OOBE>
         <HideEULAPage>true</HideEULAPage>
-        <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
         <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
-        <HideLocalAccountScreen>true</HideLocalAccountScreen>
         <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
         <ProtectYourPC>3</ProtectYourPC>
       </OOBE>
