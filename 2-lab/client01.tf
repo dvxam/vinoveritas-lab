@@ -1,5 +1,5 @@
 # CLIENT01: Windows 11 Enterprise workstation, POSTES zone (VLAN 30), imposed by the brief.
-#   - address from pfSense's DHCP, reserved for this MAC (10.50.30.10, ansible/host_vars/pfsense.yml);
+#   - address from pfSense's DHCP pool (no reservation): Ansible finds it by name in DC01's DNS;
 #   - UEFI and TPM 2.0, required by Windows 11 (edition "client" of modules/windows_vm);
 #   - the inside (domain join, local administrators, Wazuh agent) by Ansible: ansible/client01.yml.
 

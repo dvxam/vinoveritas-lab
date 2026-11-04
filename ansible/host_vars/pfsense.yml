@@ -29,9 +29,12 @@ pfsense_dhcp:
   range_from: "{{ zones.postes.dhcp_from }}"
   range_to: "{{ zones.postes.dhcp_to }}"
   dns: ["{{ ips.dc01 }}"] # DC01: workstations resolve only through the domain (X5)
-  # Fixed lease outside the pool, so Ansible finds CLIENT01 (MAC fixed in 2-lab/client01.tf)
+  # Workstations get any address of the pool: no rule targets one workstation, all target
+  # NET:POSTES. Ansible finds CLIENT01 by its name in DC01's DNS (inventory.yml).
   static:
-    - { name: client01, mac: "02:50:00:00:30:10", ip: "{{ ips.client01 }}" }
+    # TEMPORARY: remove after pfsense.yml has run once (lease of client01 deleted on pfSense),
+    # then remove "static" altogether
+    - { name: client01, mac: "02:50:00:00:30:10", state: absent }
 
 # --- DNS resolver: for pfSense itself, DC01 (F9), BACKUP01 and OVS (F19) -----------
 # Not on POSTES: workstations must go through DC01 (X5).

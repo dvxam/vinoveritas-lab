@@ -49,11 +49,11 @@
     name: "{{ item.name }}"
     hostname: "{{ item.name }}"
     macaddr: "{{ item.mac }}"
-    ipaddr: "{{ item.ip }}"
-    state: present
+    ipaddr: "{{ item.ip | default(omit) }}"
+    state: "{{ item.state | default('present') }}"
   loop: "{{ pfsense_dhcp.static | default([]) }}"
   loop_control:
-    label: "{{ item.name }} → {{ item.ip }}"
+    label: "{{ item.name }} → {{ item.ip | default(item.state) }}"
 
 - name: DNS resolver, on the zones allowed to use it
   pfsensible.core.pfsense_dns_resolver:

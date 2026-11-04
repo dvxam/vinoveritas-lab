@@ -17,7 +17,8 @@ zones:
     dhcp_to: 10.50.30.199
   sauvegarde: { vlan: 40, network: 10.50.40.0/24, gateway: 10.50.40.1 }
 
-# Address of each machine in its zone
+# Fixed address of each infrastructure machine in its zone. Workstations (CLIENT01) have none:
+# pfSense's DHCP gives them an address of zones.postes (dhcp_from to dhcp_to).
 ips:
   pfsense: 10.50.10.1 # ADMIN interface (web interface, SSH: F13)
   ovs: 10.50.10.2 # management port mgmt (F14)
@@ -25,7 +26,6 @@ ips:
   dc01: 10.50.20.10
   fs01: 10.50.20.20
   siem01: 10.50.20.30
-  client01: 10.50.30.10 # fixed DHCP lease on pfSense, outside the pool
   backup01: 10.50.40.10
 
 # Outside the zones: WireGuard end of the OVH server, temporary nat links (2-lab/)

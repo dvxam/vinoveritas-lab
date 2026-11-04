@@ -1,5 +1,5 @@
 ---
-# Checks on CLIENT01: member of the domain, in its OU, DNS from DHCP pointing to DC01,
+# Checks on CLIENT01: member of the domain, in its OU, address of the DHCP pool, DNS pointing to DC01,
 # local Administrators limited to the expected members. Read-only.
 
 - name: Read the state of CLIENT01
@@ -16,6 +16,7 @@
         domain = $cs.Domain
         dn     = [string]$dn
         dhcp   = [bool](Get-NetIPInterface -AddressFamily IPv4 -Dhcp Enabled -ErrorAction SilentlyContinue | Where-Object ConnectionState -eq 'Connected')
+        ip     = @(Get-NetIPAddress -AddressFamily IPv4 -PrefixOrigin Dhcp -ErrorAction SilentlyContinue | ForEach-Object IPAddress)
         dns    = @(Get-DnsClientServerAddress -AddressFamily IPv4 | Where-Object ServerAddresses | ForEach-Object ServerAddresses | Select-Object -Unique)
         admins = @(Get-LocalGroupMember Administrators | ForEach-Object { $_.Name -replace '^CLIENT01\\', '' } | Sort-Object)
       }
@@ -30,13 +31,20 @@
     fail_msg: "État inattendu : {{ client01_state.output[0] }}"
     success_msg: "Membre de {{ client01_domain }}, dans {{ client01_ou }}"
 
-- name: Address and DNS come from DHCP, DNS is DC01
+- name: Address from the DHCP pool of POSTES, DNS is DC01
   ansible.builtin.assert:
     that:
       - client01_state.output[0].dhcp
+      - client01_state.output[0].ip | length == 1
+      # Pool inside one /24: same first three bytes, last byte between those of the pool
+      - client01_state.output[0].ip[0].split('.')[:3] == zones.postes.dhcp_from.split('.')[:3]
+      - client01_state.output[0].ip[0].split('.')[3] | int >= zones.postes.dhcp_from.split('.')[3] | int
+      - client01_state.output[0].ip[0].split('.')[3] | int <= zones.postes.dhcp_to.split('.')[3] | int
       - client01_state.output[0].dns == [ips.dc01]
-    fail_msg: "DHCP {{ client01_state.output[0].dhcp }}, DNS {{ client01_state.output[0].dns }} (attendu {{ ips.dc01 }})"
-    success_msg: "Adresse par DHCP, DNS {{ client01_state.output[0].dns | join(', ') }}"
+    fail_msg: >-
+      Adresse {{ client01_state.output[0].ip }} (attendu entre {{ zones.postes.dhcp_from }} et {{ zones.postes.dhcp_to }}),
+      DHCP {{ client01_state.output[0].dhcp }}, DNS {{ client01_state.output[0].dns }} (attendu {{ ips.dc01 }})
+    success_msg: "Adresse {{ client01_state.output[0].ip[0] }} par DHCP, DNS {{ client01_state.output[0].dns | join(', ') }}"
 
 - name: Only the expected members in the local Administrators group
   ansible.builtin.assert:

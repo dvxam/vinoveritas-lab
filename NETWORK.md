@@ -46,7 +46,7 @@ Côté Ansible, ces adresses ne sont écrites qu'une fois, dans `ansible/group_v
 | pve | Serveur OVH, hyperviseur ; Cockpit sur `10.99.0.1:9090` | `51.161.128.8` (public), `10.99.0.1` (tunnel), `192.168.206.1` (lab-nat) | `debian` (sudo) ; root refusé | `1-server/` |
 | ADMIN01 | Poste d'administration du labo (VLAN 10) | `10.50.10.10` (seg-admin), `192.168.206.10` (nat, temporaire) | `root` (`admin_user`) | `2-lab/` |
 | SIEM01 | Wazuh tout-en-un (VLAN 20) — VM créée, Wazuh pas encore installé | `10.50.20.30` (seg-siem), `192.168.206.30` (nat, temporaire) | `root` (`admin_user`) | `2-lab/siem01.tf` |
-| CLIENT01 | Poste Windows 11 (VLAN 30) — code prêt, pas encore créé | `10.50.30.10` (seg-cli, bail DHCP fixe de pfSense) | `Administrator` (WinRM depuis ADMIN01, règle temporaire F21) | `2-lab/client01.tf` |
+| CLIENT01 | Poste Windows 11 (VLAN 30) — code prêt, pas encore créé | DHCP de pfSense, plage `.100` à `.199` (seg-cli) ; Ansible le joint par son nom `client01.vinoveritas.local` | `Administrator` (WinRM depuis ADMIN01, règle temporaire F21) | `2-lab/client01.tf` |
 | OVS | Commutateur Open vSwitch | `192.168.206.166` (nat, DHCP, temporaire) ; `10.50.10.2` (mgmt, VLAN 10) ; ports sans adresse sur les 7 segments | `root` (`admin_user`) | `2-lab/` |
 
 | DC01 | Contrôleur de domaine `vinoveritas.local`, DNS (Windows Server 2022) | `10.50.20.10` (seg-dc, VLAN 20) | `Administrator` (mot de passe dans `ansible/secrets/windows.yml`) ; WinRM 5986 et RDP depuis ADMIN | `2-lab/dc01.tf` |

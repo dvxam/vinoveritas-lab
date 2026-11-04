@@ -4,7 +4,9 @@
 #   ansible-playbook pfsense_temporary.yml -e rule=F21 -e enabled=true     # Mac or server
 #   ansible-playbook client01.yml                                          # ADMIN01
 #   ansible-playbook pfsense_temporary.yml -e rule=F21 -e enabled=false    # Mac or server
-# Needs dc01.yml and ad_users.yml first, and pfsense.yml for the fixed lease (10.50.30.10).
+# Needs dc01.yml and ad_users.yml first, and pfsense.yml for the DHCP of POSTES.
+# First run, before the domain join, the name is not in DNS yet: add -e ansible_host=<address>,
+# read in pfSense (Status > DHCP Leases).
 - name: Create the OU of the workstations on DC01
   hosts: dc01
   gather_facts: false
@@ -49,7 +51,8 @@
         fail_msg: >-
           WinRM de CLIENT01 injoignable : activer F21 depuis le Mac ou le serveur
           (ansible-playbook pfsense_temporary.yml -e rule=F21 -e enabled=true), ou attendre la fin
-          de l'installation de Windows.
+          de l'installation de Windows. Avant la jonction au domaine, le nom {{ ansible_host }} n'est
+          pas dans le DNS : relancer avec -e ansible_host=<adresse du bail> (pfSense, Status > DHCP Leases).
         quiet: true
 
     - name: Gather facts

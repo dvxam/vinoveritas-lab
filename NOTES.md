@@ -239,6 +239,13 @@
 - Restent en dur : la ligne de journal de test de `wazuh/tasks/verify.yml`, les commandes d'aide en commentaire de `dc01.yml` et `fs01.yml`, et `scripts/trigger-events.sh` (script bash, renvoi en commentaire). `2-lab/` (OpenTofu) garde ses propres adresses.
 - Vérifié sans rien appliquer : toutes les variables touchées (hôtes, `ProxyJump`, zones, DHCP, alias, `ovs_mgmt`, enregistrements DNS, valeurs par défaut des rôles) donnent exactement les mêmes valeurs qu'avant (rendu comparé avant et après le changement) ; `--syntax-check` passe sur tous les playbooks.
 
+### 30. CLIENT01 en DHCP dynamique, sans bail réservé
+- Adresses fixes seulement pour l'infrastructure : pfSense, OVS (`mgmt`), ADMIN01, DC01, FS01, SIEM01, BACKUP01. ADMIN01 reste fixe : la règle F22 le désigne par son alias (les autres règles de la zone visent `NET:ADMIN`), le tableau de bord Wazuh des comptes à privilèges attend `10.50.10.10`, et c'est le poste de secours (pas de DHCP dans la zone ADMIN).
+- Les postes prennent une adresse de la plage `.100` à `.199` : aucune règle ne vise un poste, toutes visent `NET:POSTES` (F21 comprise). Le bail fixe de CLIENT01 (`10.50.30.10`) ne servait qu'à Ansible.
+- `host_vars/pfsense.yml` : bail de client01 passé en `state: absent` (marqué `TEMPORARY`) ; le rôle `pfsense` accepte `state` par bail. `network.yml` : `ips.client01` retiré.
+- `inventory.yml` : `ansible_host: client01.vinoveritas.local` (enregistré par Windows dans le DNS de DC01 une fois membre du domaine). Avant la jonction : `-e ansible_host=<adresse du bail>` (expliqué en tête de `client01.yml` et dans son message d'erreur).
+- `client01/verify.yml` : l'adresse doit être dans la plage DHCP. Expression testée en local (`.10`, `.200` et un autre /24 refusés ; `.100`, `.150`, `.199` acceptés). `ansible.utils.ipaddr` évité : il demande `netaddr`, absent du Mac.
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).
@@ -256,4 +263,5 @@
 - Agents Wazuh, dans l'ordre : `siem01.yml`, `ovs.yml`, `pfsense.yml` (alias F18), puis `wazuh_agents.yml --limit admin01,ovs` (Mac ou serveur) et `wazuh_agents.yml --limit windows` (ADMIN01).
 - Tableau de bord : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.
 - Journaux pfSense et tableau de bord « Réseau » : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.
-- CLIENT01, dans l'ordre : `pfsense.yml` (bail fixe), `tofu apply` dans `2-lab/` (crée CLIENT01, télécharge l'ISO), attendre la fin de l'installation, puis F21 activée, `client01.yml` depuis ADMIN01, F21 désactivée.
+- CLIENT01, dans l'ordre : `pfsense.yml` (DHCP), `tofu apply` dans `2-lab/` (crée CLIENT01, télécharge l'ISO), attendre la fin de l'installation, puis F21 activée, `client01.yml` depuis ADMIN01, F21 désactivée.
+- CLIENT01 en DHCP : `ansible-playbook pfsense.yml` (Mac ou serveur, supprime le bail fixe), `ipconfig /release` puis `/renew` sur CLIENT01, puis `client01.yml` depuis ADMIN01 avec F21 activée. Ensuite, retirer le bloc `TEMPORARY` de `host_vars/pfsense.yml` (`rg TEMPORARY`).
