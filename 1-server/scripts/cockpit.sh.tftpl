@@ -18,8 +18,13 @@ apt-get update
 # take over the network (systemd-networkd). Only the base and the VM page.
 # From backports, as Cockpit advises for Debian (newer than Debian 13's version 337).
 . /etc/os-release
+# pcp + python3-pcp: metrics history (the PCP channel is built into cockpit-bridge,
+# there is no cockpit-pcp package any more, and python3-pcp is only "suggested").
 apt-get install -y --no-install-recommends -t "$VERSION_CODENAME-backports" \
-  cockpit-ws cockpit-bridge cockpit-system cockpit-machines
+  cockpit-ws cockpit-bridge cockpit-system cockpit-machines pcp python3-pcp
+
+log "Metrics history: pmcd collects, pmlogger records"
+systemctl enable --now pmcd pmlogger
 
 log "User D-Bus in the user managers already running"
 # cockpit-bridge pulls dbus-user-session, but a user manager started before it (debian's,

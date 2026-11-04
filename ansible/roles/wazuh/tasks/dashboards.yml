@@ -18,16 +18,22 @@
     validate_certs: false # self-signed certificate made by the assistant
   register: wazuh_patterns
 
-- name: Remember its id
+# Title -> id of every index pattern; the templates use wazuh_pattern_ids['<title>']
+# (and wazuh_alerts_pattern_id, kept for the older templates)
+- name: Remember their ids
   ansible.builtin.set_fact:
-    wazuh_alerts_pattern_id: "{{ (wazuh_patterns.json.saved_objects | selectattr('attributes.title', 'equalto', 'wazuh-alerts-*') | first).id }}"
-  when: wazuh_patterns.json.saved_objects | selectattr('attributes.title', 'equalto', 'wazuh-alerts-*') | list | length > 0
+    wazuh_pattern_ids: "{{ dict(wazuh_patterns.json.saved_objects | map(attribute='attributes.title') | zip(wazuh_patterns.json.saved_objects | map(attribute='id'))) }}"
 
-- name: The index pattern of the alerts exists
+- name: The index patterns used by the dashboards exist
   ansible.builtin.assert:
-    that: wazuh_alerts_pattern_id is defined
-    fail_msg: "Modèle d'index wazuh-alerts-* absent : se connecter une fois au tableau de bord Wazuh, puis relancer"
+    that: item in wazuh_pattern_ids
+    fail_msg: "Modèle d'index {{ item }} absent : se connecter une fois au tableau de bord Wazuh, puis relancer"
     quiet: true
+  loop: "{{ wazuh_dashboards | map(attribute='pattern') | unique }}"
+
+- name: Remember the id of the alerts pattern
+  ansible.builtin.set_fact:
+    wazuh_alerts_pattern_id: "{{ wazuh_pattern_ids['wazuh-alerts-*'] }}"
 
 - name: Create the directory of the dashboard files
   ansible.builtin.file:

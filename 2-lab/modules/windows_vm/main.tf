@@ -180,7 +180,8 @@ resource "libvirt_domain" "vm" {
 resource "terraform_data" "boot_key" {
   count = local.uefi ? 1 : 0
 
-  triggers_replace = [libvirt_domain.vm.id]
+  # The uuid, not the id: the id is the runtime number, it changes at every start of the VM
+  triggers_replace = [libvirt_domain.vm.uuid]
 
   connection {
     type        = "ssh"

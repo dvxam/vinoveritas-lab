@@ -206,12 +206,20 @@
 - Rôle `client01` + `client01.yml` (depuis ADMIN01) : OU `Postes` sur DC01, jonction au domaine dans cette OU, groupe Administrateurs local réduit à `Administrator` et `VINOVERITAS\Domain Admins` (`state: pure`), agent Wazuh (F23). `client01.yml` s'arrête avec un message clair si F21 n'est pas activée. `verify.yml` : membre du domaine, OU, adresse et DNS par DHCP (DC01), administrateurs locaux.
 - CLIENT01 ajouté à `inventory.yml` (groupe `windows`) : `wazuh_agents.yml --limit windows` le couvre aussi.
 
+### 25. Tableau de bord des vulnérabilités (code prêt, à lancer par l'utilisateur)
+- Constaté sur SIEM01 : index `wazuh-states-vulnerabilities-*` (modèle d'index créé par Wazuh, sans champ de date : c'est un état, la période choisie n'a pas d'effet), environ 9 800 vulnérabilités : DC01 et FS01 3 990 chacun (125 critiques), ADMIN01 et OVS environ 920 (46 critiques, 326 sans score). SIEM01 lui-même n'est pas analysé.
+- « Vino Veritas — Vulnérabilités » : en haut, cartographie par service (carte de chaleur : service rendu par chaque machine × gravité, avec des filtres nommés « Annuaire, DNS (DC01) », « Fichiers (FS01) », « Poste de travail (CLIENT01) », « Administration (ADMIN01) », « Réseau (OVS) ») et total par gravité ; dessous, un sélecteur de machine (`agent.name`) qui filtre tout le tableau de bord ; puis les vulnérabilités critiques et élevées (CVE, score, paquet, machines) et les paquets les plus vulnérables.
+- Rôle `wazuh` : chaque tableau de bord déclare le modèle d'index qu'il lit (`pattern` dans `wazuh_dashboards`) ; le rôle retrouve l'identifiant de chaque modèle par son titre (`wazuh_pattern_ids`) et vérifie qu'il existe.
+- Pas testé contre SIEM01 : export généré par script, JSON validé, expression des identifiants testée en local.
+
 ### 26. 2-lab : un fichier par machine, modules pour ce qui est commun
 - `vms.tf` (ADMIN01, OVS) et `windows.tf` (DC01, FS01) découpés : un fichier par machine (`admin01.tf`, `ovs.tf`, `siem01.tf`, `dc01.tf`, `fs01.tf`, `client01.tf`, `pfsense.tf`), chacun n'appelle qu'un module avec les réglages de la machine.
 - Modules dans `2-lab/modules/` : `debian_vm` (image cloud, cloud-init, cartes réseau), `windows_vm` (ISO sans intervention, disque de données facultatif, `edition = "server"` ou `"client"` : UEFI, TPM 2.0 et touche au démarrage pour Windows 11), `server_iso` (téléchargement d'un ISO sur le serveur, somme et gzip facultatifs). Les gabarits Windows sont passés dans `modules/windows_vm/templates/`.
 - `images.tf` regroupe les images : Debian, ISO Windows Server 2022, Windows 11 et pfSense. `locals.tf` : accès SSH au serveur, clés SSH, mot de passe Administrator, réseau ADMIN.
 - `moved.tf` : 26 blocs `moved`. `tofu plan` : rien à créer ni à détruire. Seule différence : CLIENT01 `running = false -> true` (VM éteinte au moment du plan, sans lien avec le découpage).
 - SIEM01 garde ses noms de cartes netplan (`seg-siem`, `nat`, option `name` du module) : sinon cloud-init, donc la VM, aurait été reconstruit.
+- `tofu apply` lancé par l'utilisateur, déplacements enregistrés dans l'état : `moved.tf` supprimé, plan vide ensuite.
+- Correction au passage : la touche au démarrage de CLIENT01 se déclenchait sur l'`id` de la VM, le numéro d'exécution, qui change à chaque démarrage ; elle se déclenche maintenant sur son `uuid` (un dernier remplacement au prochain `apply`, sans effet sur Windows déjà installé).
 
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
@@ -229,6 +237,5 @@
 - Partages : `ansible-playbook file_shares.yml` depuis ADMIN01, après `dc01.yml` et `fs01.yml`.
 - Agents Wazuh, dans l'ordre : `siem01.yml`, `ovs.yml`, `pfsense.yml` (alias F18), puis `wazuh_agents.yml --limit admin01,ovs` (Mac ou serveur) et `wazuh_agents.yml --limit windows` (ADMIN01).
 - Tableau de bord : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.
-- 2-lab : `tofu init` (nouveaux modules), puis `tofu apply` pour enregistrer les déplacements dans l'état ; `moved.tf` pourra ensuite être supprimé.
 - Journaux pfSense et tableau de bord « Réseau » : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.
 - CLIENT01, dans l'ordre : `pfsense.yml` (bail fixe), `tofu apply` dans `2-lab/` (crée CLIENT01, télécharge l'ISO), attendre la fin de l'installation, puis F21 activée, `client01.yml` depuis ADMIN01, F21 désactivée.

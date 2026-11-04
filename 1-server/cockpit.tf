@@ -81,7 +81,7 @@ resource "terraform_data" "cockpit" {
       "sudo systemctl disable --now cockpit.socket || true",
       "sudo rm -rf /etc/systemd/system/cockpit.socket.d",
       "sudo systemctl daemon-reload",
-      "sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y cockpit-ws cockpit-bridge cockpit-system cockpit-machines libvirt-dbus",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y cockpit-ws cockpit-bridge cockpit-system cockpit-machines libvirt-dbus pcp python3-pcp",
       "sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y",
     ]
   }
