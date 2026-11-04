@@ -7,6 +7,6 @@ admin_collections:
   - openvswitch.openvswitch:2.2.2
 
 # Network of ADMIN01 (Mission 2, IP plan): pfSense towards the other zones, DC01 for DNS (F12)
-admin_zones_gateway: 10.50.10.1
-admin_dns: 10.50.20.10
+admin_zones_gateway: "{{ zones.admin.gateway }}"
+admin_dns: "{{ ips.dc01 }}"
 admin_domain: vinoveritas.local

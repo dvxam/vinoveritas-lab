@@ -13,6 +13,7 @@
 # Everything is undone at the end (the temporary account is deleted). Nothing is sent outside the lab.
 set -euo pipefail
 
+# Same addresses as group_vars/all/network.yml (a shell script cannot read it)
 DC01=10.50.20.10
 FS01=10.50.20.20
 OVS=10.50.10.2

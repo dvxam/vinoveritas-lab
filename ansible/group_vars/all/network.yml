@@ -1,0 +1,36 @@
+---
+# Addresses of the lab: the only place where they are written. Everything else in ansible/ refers
+# to these variables. Diagram and connection notes: NETWORK.md. Same plan as the report (Mission 2).
+# 2-lab/ (OpenTofu) has its own copy for the VMs it creates: keep both in step.
+
+lab_network: 10.50.0.0/16
+
+# Zones = VLANs on OVS; gateway = pfSense interface in the zone
+zones:
+  admin: { vlan: 10, network: 10.50.10.0/24, gateway: 10.50.10.1 }
+  serveurs: { vlan: 20, network: 10.50.20.0/24, gateway: 10.50.20.1 }
+  postes:
+    vlan: 30
+    network: 10.50.30.0/24
+    gateway: 10.50.30.1
+    dhcp_from: 10.50.30.100 # pool of pfSense's DHCP
+    dhcp_to: 10.50.30.199
+  sauvegarde: { vlan: 40, network: 10.50.40.0/24, gateway: 10.50.40.1 }
+
+# Address of each machine in its zone
+ips:
+  pfsense: 10.50.10.1 # ADMIN interface (web interface, SSH: F13)
+  ovs: 10.50.10.2 # management port mgmt (F14)
+  admin01: 10.50.10.10
+  dc01: 10.50.20.10
+  fs01: 10.50.20.20
+  siem01: 10.50.20.30
+  client01: 10.50.30.10 # fixed DHCP lease on pfSense, outside the pool
+  backup01: 10.50.40.10
+
+# Outside the zones: WireGuard end of the OVH server, temporary nat links (2-lab/)
+server_tunnel_ip: 10.99.0.1
+nat_ips:
+  admin01: 192.168.206.10
+  ovs: 192.168.206.166 # DHCP: check it with `tofu -chdir=2-lab output ssh`
+  siem01: 192.168.206.30

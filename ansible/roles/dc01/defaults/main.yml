@@ -3,12 +3,12 @@
 dc01_domain: vinoveritas.local
 dc01_netbios: VINOVERITAS
 # pfSense in VLAN 20: DNS forwarder and time source of the domain (F9)
-dc01_upstream: 10.50.20.1
+dc01_upstream: "{{ zones.serveurs.gateway }}"
 
 # Machines outside the domain: they do not register in DNS themselves, so fixed A records.
 # Their address in the zones (Mission 2, IP plan), never the temporary nat link.
 dc01_dns_records:
-  - { name: pfsense, ip: 10.50.10.1 }  # ADMIN interface (web interface, SSH: F13)
-  - { name: ovs, ip: 10.50.10.2 }      # management port mgmt (F14)
-  - { name: admin01, ip: 10.50.10.10 }
-  - { name: siem01, ip: 10.50.20.30 }  # Wazuh console and SSH from ADMIN01 (F25)
+  - { name: pfsense, ip: "{{ ips.pfsense }}" } # ADMIN interface (web interface, SSH: F13)
+  - { name: ovs, ip: "{{ ips.ovs }}" } # management port mgmt (F14)
+  - { name: admin01, ip: "{{ ips.admin01 }}" }
+  - { name: siem01, ip: "{{ ips.siem01 }}" } # Wazuh console and SSH from ADMIN01 (F25)

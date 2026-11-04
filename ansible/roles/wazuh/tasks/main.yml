@@ -18,7 +18,7 @@
         ethernets:
           seg-siem:
             routes:
-              - to: 10.50.0.0/16
+              - to: "{{ lab_network }}"
                 via: {{ wazuh_zones_gateway }}
   register: wazuh_zones_route
 

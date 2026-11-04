@@ -6,38 +6,38 @@ all:
     ansible_user: root
     ansible_ssh_common_args: >-
       -o StrictHostKeyChecking=accept-new
-      {{ '' if lookup('ansible.builtin.pipe', 'hostname -s') == 'pve' else '-o ProxyJump=debian@10.99.0.1' }}
+      {{ '' if lookup('ansible.builtin.pipe', 'hostname -s') == 'pve' else '-o ProxyJump=debian@' ~ server_tunnel_ip }}
   hosts:
     # The OVH server itself, directly through the tunnel
     pve:
-      ansible_host: 10.99.0.1
+      ansible_host: "{{ server_tunnel_ip }}"
       ansible_user: debian
       ansible_ssh_common_args: ""
       ansible_connection: "{{ 'local' if lookup('ansible.builtin.pipe', 'hostname -s') == 'pve' else 'ssh' }}"
     admin01:
       # Fixed address on the temporary nat link (2-lab/admin01.tf)
-      ansible_host: 192.168.206.10
+      ansible_host: "{{ nat_ips.admin01 }}"
     ovs:
       # DHCP address on the temporary nat network: check it with `tofu -chdir=2-lab output ssh`
-      ansible_host: 192.168.206.166
+      ansible_host: "{{ nat_ips.ovs }}"
     siem01:
       # Fixed address on the temporary nat link (2-lab/siem01.tf)
-      ansible_host: 192.168.206.30
+      ansible_host: "{{ nat_ips.siem01 }}"
     dc01:
-      ansible_host: 10.50.20.10
+      ansible_host: "{{ ips.dc01 }}"
     fs01:
-      ansible_host: 10.50.20.20
+      ansible_host: "{{ ips.fs01 }}"
     client01:
       # Fixed DHCP lease on pfSense (host_vars/pfsense.yml); WinRM through the temporary rule F21
-      ansible_host: 10.50.30.10
+      ansible_host: "{{ ips.client01 }}"
     pfsense:
       # LAN on VLAN 10, only reachable through ADMIN01 (Mission 2: pfSense is administered from ADMIN)
-      ansible_host: 10.50.10.1
+      ansible_host: "{{ ips.pfsense }}"
       ansible_user: admin
       ansible_python_interpreter: /usr/local/bin/python3.11
       ansible_ssh_common_args: >-
         -o StrictHostKeyChecking=accept-new
-        -o ProxyJump={{ '' if lookup('ansible.builtin.pipe', 'hostname -s') == 'pve' else 'debian@10.99.0.1,' }}root@192.168.206.10
+        -o ProxyJump={{ '' if lookup('ansible.builtin.pipe', 'hostname -s') == 'pve' else 'debian@' ~ server_tunnel_ip ~ ',' }}root@{{ nat_ips.admin01 }}
 
 # Windows VMs: WinRM over HTTPS (flow F11), from ADMIN01 only (route through pfSense).
 # Run there: ssh into ADMIN01, then ansible-playbook dc01.yml (see NOTES.md).

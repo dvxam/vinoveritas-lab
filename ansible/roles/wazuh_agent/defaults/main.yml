@@ -1,6 +1,6 @@
 ---
 # SIEM01 on VLAN 20 (Mission 2). The agents of the other zones reach it through pfSense (F23 to F25).
-wazuh_agent_manager: 10.50.20.30
+wazuh_agent_manager: "{{ ips.siem01 }}"
 
 # Same version as the manager (an agent must not be newer): wazuh-control info on SIEM01
 wazuh_agent_version: 4.14.9-1

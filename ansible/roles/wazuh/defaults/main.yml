@@ -24,13 +24,13 @@ wazuh_ports:
   - { port: 55000, what: "manager API" }
 
 # pfSense on VLAN 20: route to the other zones, for the agents of ADMIN01, OVS, CLIENT01, BACKUP01
-wazuh_zones_gateway: 10.50.20.1
+wazuh_zones_gateway: "{{ zones.serveurs.gateway }}"
 
 # Remote syslog received by the manager (flow F26): pfSense sends its firewall, system and
 # authentication logs. Only these addresses are accepted: pfSense on the SERVEURS zone.
 wazuh_syslog_port: 514
 wazuh_syslog_allowed_ips:
-  - 10.50.20.1
+  - "{{ zones.serveurs.gateway }}"
 
 # Dashboards imported into the Wazuh dashboard (templates/<file>.j2, id of the dashboard object,
 # index pattern its panels read)

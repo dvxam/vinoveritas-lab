@@ -50,14 +50,14 @@
     success_msg: "Syslog reçu sur {{ wazuh_syslog_port }}/udp"
 
 - name: Read the route to the other zones
-  ansible.builtin.command: ip route show 10.50.0.0/16
+  ansible.builtin.command: ip route show {{ lab_network }}
   register: wazuh_route
   changed_when: false
 
 - name: The other zones are reached through pfSense
   ansible.builtin.assert:
     that: ("via " ~ wazuh_zones_gateway) in wazuh_route.stdout
-    fail_msg: "Pas de route vers 10.50.0.0/16 par {{ wazuh_zones_gateway }} : {{ wazuh_route.stdout }}"
+    fail_msg: "Pas de route vers {{ lab_network }} par {{ wazuh_zones_gateway }} : {{ wazuh_route.stdout }}"
     success_msg: "Zones jointes par pfSense ({{ wazuh_route.stdout }})"
 
 - name: Get the dashboard admin password

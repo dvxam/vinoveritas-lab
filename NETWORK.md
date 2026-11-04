@@ -38,6 +38,8 @@ Adresses de toutes les machines et façon de s'y connecter. Mis à jour à chaqu
 
 ## Machines
 
+Côté Ansible, ces adresses ne sont écrites qu'une fois, dans `ansible/group_vars/all/network.yml` : à modifier en même temps que ce tableau (et `2-lab/` pour les VM).
+
 | Machine | Rôle | Adresse(s) | Compte SSH | Créée par |
 |---|---|---|---|---|
 | Mac | Poste d'administration | `10.99.0.2` (tunnel) | — | — |

@@ -34,8 +34,8 @@
   ansible.builtin.assert:
     that:
       - client01_state.output[0].dhcp
-      - client01_state.output[0].dns == ['10.50.20.10']
-    fail_msg: "DHCP {{ client01_state.output[0].dhcp }}, DNS {{ client01_state.output[0].dns }} (attendu 10.50.20.10)"
+      - client01_state.output[0].dns == [ips.dc01]
+    fail_msg: "DHCP {{ client01_state.output[0].dhcp }}, DNS {{ client01_state.output[0].dns }} (attendu {{ ips.dc01 }})"
     success_msg: "Adresse par DHCP, DNS {{ client01_state.output[0].dns | join(', ') }}"
 
 - name: Only the expected members in the local Administrators group

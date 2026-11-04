@@ -233,6 +233,12 @@
 - Rôle `fs01` : tâches des lecteurs de CD et du disque retirées, `verify.yml` ne contrôle plus de disque. `shares_root: C:\Partages` ; le rôle `file_shares` coupe l'héritage depuis `C:` (même raison qu'avant : « Utilisateurs » en lecture à la racine).
 - La saturation du disque par un partage est couverte par les quotas FSRM (à faire, mission 5).
 
+### 29. Adresses centralisées dans ansible/group_vars/all/network.yml
+- Un seul fichier donne le plan d'adressage : `lab_network`, `zones` (VLAN, réseau, passerelle pfSense, plage DHCP de POSTES), `ips` (adresse de chaque machine dans sa zone), `server_tunnel_ip` et `nat_ips` (liens nat temporaires).
+- Y renvoient : `inventory.yml` (`ansible_host`, `ProxyJump`), `host_vars/pfsense.yml` (zones, DHCP, syslog, alias), `host_vars/ovs.yml` (`mgmt`), les `defaults` des rôles `admin`, `dc01`, `fs01`, `wazuh`, `wazuh_agent`, `windows_base`, et les tâches qui citaient `10.50.0.0/16`, DC01 ou pfSense. Les noms des variables des rôles ne changent pas.
+- Restent en dur : la ligne de journal de test de `wazuh/tasks/verify.yml`, les commandes d'aide en commentaire de `dc01.yml` et `fs01.yml`, et `scripts/trigger-events.sh` (script bash, renvoi en commentaire). `2-lab/` (OpenTofu) garde ses propres adresses.
+- Vérifié sans rien appliquer : toutes les variables touchées (hôtes, `ProxyJump`, zones, DHCP, alias, `ovs_mgmt`, enregistrements DNS, valeurs par défaut des rôles) donnent exactement les mêmes valeurs qu'avant (rendu comparé avant et après le changement) ; `--syntax-check` passe sur tous les playbooks.
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).

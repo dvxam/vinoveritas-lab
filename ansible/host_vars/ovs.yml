@@ -11,6 +11,6 @@ ovs_cards:
 
 # Management port: an internal port of the bridge, reachable from ADMIN01 on VLAN 10
 ovs_mgmt:
-  address: 10.50.10.2/24
-  vlan: 10
-  gateway: 10.50.10.1 # pfSense, towards the other zones
+  address: "{{ ips.ovs }}/24"
+  vlan: "{{ zones.admin.vlan }}"
+  gateway: "{{ zones.admin.gateway }}" # pfSense, towards the other zones
