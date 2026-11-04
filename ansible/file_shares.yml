@@ -31,22 +31,24 @@
 # Checks the result, on both machines
 - name: Check the access groups
   hosts: dc01
+  tags: verify # ansible-playbook <playbook> --tags verify: the checks only
   gather_facts: false
   vars_files:
     - secrets/windows.yml
   tasks:
     - name: Run the checks of the ad_groups role
-      ansible.builtin.include_role:
+      ansible.builtin.import_role:
         name: ad_groups
         tasks_from: verify
 
 - name: Check the shares
   hosts: fs01
+  tags: verify # ansible-playbook <playbook> --tags verify: the checks only
   gather_facts: false
   vars_files:
     - secrets/windows.yml
   tasks:
     - name: Run the checks of the file_shares role
-      ansible.builtin.include_role:
+      ansible.builtin.import_role:
         name: file_shares
         tasks_from: verify

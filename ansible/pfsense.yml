@@ -13,16 +13,18 @@
 
 - name: Check pfSense
   hosts: pfsense
+  tags: verify # ansible-playbook <playbook> --tags verify: the checks only
   tasks:
     - name: Run the checks of the pfsense role
-      ansible.builtin.include_role:
+      ansible.builtin.import_role:
         name: pfsense
         tasks_from: verify
 
 - name: Check the rules from ADMIN01
   hosts: admin01
+  tags: verify # ansible-playbook <playbook> --tags verify: the checks only
   tasks:
     - name: Run the checks made from ADMIN01
-      ansible.builtin.include_role:
+      ansible.builtin.import_role:
         name: pfsense
         tasks_from: verify_from_admin

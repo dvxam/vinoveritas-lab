@@ -1,0 +1,40 @@
+# Every check of the lab, without configuring anything: the plays tagged verify of each playbook.
+# No machine reaches every zone, so run it twice:
+#   ansible-playbook verify.yml --tags verify --limit pfsense,ovs,siem01,admin01   # Mac or server
+#   ansible-playbook verify.yml --tags verify --limit windows                      # ADMIN01
+# Without --tags verify the imported playbooks would configure the machines: the first play stops that.
+
+# On the hosts of --limit (localhost would be left out by --limit), but run on the controller only
+- name: Only the checks
+  hosts: all
+  gather_facts: false
+  tags: always
+  tasks:
+    - name: Stop unless run with --tags verify
+      run_once: true
+      delegate_to: localhost
+      ansible.builtin.assert:
+        that: ansible_run_tags | list == ['verify'] # a tuple in ansible-core 2.21
+        fail_msg: >-
+          Lancer avec --tags verify (et rien d'autre) : sans ce tag, les playbooks importés
+          configureraient les machines.
+        quiet: true
+
+- name: pfSense
+  ansible.builtin.import_playbook: pfsense.yml
+- name: Open vSwitch
+  ansible.builtin.import_playbook: ovs.yml
+- name: Wazuh
+  ansible.builtin.import_playbook: siem01.yml
+- name: DC01
+  ansible.builtin.import_playbook: dc01.yml
+- name: Accounts
+  ansible.builtin.import_playbook: ad_users.yml
+- name: FS01
+  ansible.builtin.import_playbook: fs01.yml
+- name: Shares
+  ansible.builtin.import_playbook: file_shares.yml
+- name: CLIENT01
+  ansible.builtin.import_playbook: client01.yml
+- name: Wazuh agents
+  ansible.builtin.import_playbook: wazuh_agents.yml

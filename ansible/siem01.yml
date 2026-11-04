@@ -12,9 +12,10 @@
 # Checks the result. Second play, as in ovs.yml.
 - name: Check Wazuh
   hosts: siem01
+  tags: verify # ansible-playbook <playbook> --tags verify: the checks only
   become: true
   tasks:
     - name: Run the checks of the wazuh role
-      ansible.builtin.include_role:
+      ansible.builtin.import_role:
         name: wazuh
         tasks_from: verify

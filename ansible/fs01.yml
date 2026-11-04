@@ -32,10 +32,11 @@
 
 - name: Check FS01
   hosts: fs01
+  tags: verify # ansible-playbook <playbook> --tags verify: the checks only
   vars_files:
     - secrets/windows.yml
   tasks:
     - name: Run the checks of the fs01 role
-      ansible.builtin.include_role:
+      ansible.builtin.import_role:
         name: fs01
         tasks_from: verify

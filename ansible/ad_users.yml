@@ -25,11 +25,12 @@
 
 - name: Check the accounts
   hosts: dc01
+  tags: verify # ansible-playbook <playbook> --tags verify: the checks only
   gather_facts: false
   vars_files:
     - secrets/windows.yml
   tasks:
     - name: Run the checks of the ad_users role
-      ansible.builtin.include_role:
+      ansible.builtin.import_role:
         name: ad_users
         tasks_from: verify

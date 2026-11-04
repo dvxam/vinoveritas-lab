@@ -246,6 +246,11 @@
 - `inventory.yml` : `ansible_host: client01.vinoveritas.local` (enregistré par Windows dans le DNS de DC01 une fois membre du domaine). Avant la jonction : `-e ansible_host=<adresse du bail>` (expliqué en tête de `client01.yml` et dans son message d'erreur).
 - `client01/verify.yml` : l'adresse doit être dans la plage DHCP. Expression testée en local (`.10`, `.200` et un autre /24 refusés ; `.100`, `.150`, `.199` acceptés). `ansible.utils.ipaddr` évité : il demande `netaddr`, absent du Mac.
 
+### 31. Contrôles seuls : tag verify et verify.yml
+- Chaque play « Check … » des playbooks porte `tags: verify` ; `include_role` y devient `import_role`, pour que les tâches de `verify.yml` héritent du tag. `ansible-playbook <playbook> --tags verify` ne lance que les contrôles (vérifié avec `--list-tasks` : aucune tâche de configuration).
+- `verify.yml` importe tous les playbooks. Aucune machine ne joint toutes les zones, donc deux passages : `--tags verify --limit pfsense,ovs,siem01,admin01` depuis le Mac ou le serveur, `--tags verify --limit windows` depuis ADMIN01.
+- Garde : sans `--tags verify` exactement, le premier play s'arrête avant tout autre (sinon les playbooks importés configureraient les machines). Il tourne sur les hôtes de `--limit`, délégué au contrôleur, car un play sur `localhost` serait sauté par `--limit`. Refus testé avec `--tags always`, sans rien lancer sur les machines.
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).

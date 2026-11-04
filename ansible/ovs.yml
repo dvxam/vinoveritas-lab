@@ -8,8 +8,9 @@
 # Checks the result. Second play, so the handlers (reboot, networkd) have already run.
 - name: Check Open vSwitch
   hosts: ovs
+  tags: verify # ansible-playbook <playbook> --tags verify: the checks only
   tasks:
     - name: Run the checks of the ovs role
-      ansible.builtin.include_role:
+      ansible.builtin.import_role:
         name: ovs
         tasks_from: verify
