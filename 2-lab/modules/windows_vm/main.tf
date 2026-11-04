@@ -83,20 +83,6 @@ resource "libvirt_volume" "system" {
   }
 }
 
-# Data disk, for the VMs that have one (FS01: the shares)
-resource "libvirt_volume" "data" {
-  count = var.data_disk > 0 ? 1 : 0
-
-  name          = "${var.name}-data.qcow2"
-  pool          = var.pool
-  capacity      = var.data_disk
-  capacity_unit = "GiB"
-
-  target = {
-    format = { type = "qcow2" }
-  }
-}
-
 resource "libvirt_domain" "vm" {
   name        = var.name
   type        = "kvm"
@@ -127,7 +113,7 @@ resource "libvirt_domain" "vm" {
   devices = {
     # Disk first: empty, so the VM starts on the Windows ISO; installed, it boots on the disk.
     # By path, not as pool volumes (AppArmor, see modules/debian_vm).
-    disks = concat([
+    disks = [
       {
         source = { file = { file = libvirt_volume.system.path } }
         target = { bus = "sata", dev = "sda" }
@@ -145,11 +131,7 @@ resource "libvirt_domain" "vm" {
         source = { file = { file = local.unattend_iso } }
         target = { bus = "sata", dev = "sdc" }
       },
-      ], var.data_disk > 0 ? [{
-        source = { file = { file = one(libvirt_volume.data[*].path) } }
-        target = { bus = "sata", dev = "sdd" }
-        driver = { name = "qemu", type = "qcow2" }
-    }] : [])
+    ]
 
     interfaces = [{
       model  = { type = "e1000e" }

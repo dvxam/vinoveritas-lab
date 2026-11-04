@@ -32,12 +32,6 @@ variable "disk" {
   type        = number
 }
 
-variable "data_disk" {
-  description = "Second disk (D:), in GiB; 0 = none"
-  type        = number
-  default     = 0
-}
-
 variable "network" {
   description = "libvirt network of the card (access port on OVS)"
   type        = string

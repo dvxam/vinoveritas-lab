@@ -4,18 +4,17 @@
 module "fs01" {
   source = "./modules/windows_vm"
 
-  name      = "fs01"
-  hostname  = "FS01"
-  edition   = "server"
-  vcpu      = 2
-  ram       = 4096
-  disk      = 40
-  data_disk = 40       # the shares (D:)
-  network   = "seg-fs" # access port VLAN 20 on OVS
-  mac       = "02:50:00:00:20:20"
-  ip        = "10.50.20.20/24"
-  gateway   = "10.50.20.1"
-  dns       = "10.50.20.10" # DC01, to join the domain
+  name     = "fs01"
+  hostname = "FS01"
+  edition  = "server"
+  vcpu     = 2
+  ram      = 4096
+  disk     = 40
+  network  = "seg-fs" # access port VLAN 20 on OVS
+  mac      = "02:50:00:00:20:20"
+  ip       = "10.50.20.20/24"
+  gateway  = "10.50.20.1"
+  dns      = "10.50.20.10" # DC01, to join the domain
 
   iso_path       = module.windows_server_iso.path
   admin_password = local.windows_admin_password

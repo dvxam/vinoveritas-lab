@@ -18,7 +18,7 @@ shares_departments:
 
 # One share per department, plus Commun. rw / ro: departments, turned into DL_<share>_RW / DL_<share>_RO.
 # Without ro, no read-only group is created.
-shares_root: D:\Partages
+shares_root: C:\Partages
 shares:
   - { name: Direction, data: "D3, stratégie, contrats, marges", rw: [Direction] }
   - { name: RH, data: "D1, dossiers du personnel, salaires", rw: [RH] }

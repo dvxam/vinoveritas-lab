@@ -1,4 +1,4 @@
-# Configures FS01: RDP (windows_base), domain membership, file server role, data disk D:.
+# Configures FS01: RDP (windows_base), domain membership, file server role.
 # Needs DC01 promoted first (dc01.yml). Run from ADMIN01 (WinRM 5986 through pfSense, flow F11).
 # From the Mac:
 #   rsync -a --delete -e 'ssh -J debian@10.99.0.1' --rsync-path='mkdir -p vinoveritas-lab && rsync' ansible/ root@192.168.206.10:vinoveritas-lab/ansible/

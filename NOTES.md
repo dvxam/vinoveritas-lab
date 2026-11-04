@@ -227,6 +227,12 @@
 - `blocked`, `scan` : le décodeur `vinoveritas-pfsense` n'a jamais reconnu une vraie ligne : sans nom de programme trouvé, l'en-tête `filterlog[pid]: ` reste dans le message lu par les décodeurs, et l'expression était ancrée en `^`. Même la ligne de `verify.yml` échouait. Expressions corrigées (`(?:^|filterlog\[\d+\]: )`), testées avec `wazuh-logtest` sur SIEM01 (décodeur temporaire, retiré ensuite).
 - `verify.yml` ne pouvait pas voir ce défaut : `wazuh-logtest` écrit son résultat sur stderr, le contrôle lisait stdout (vide). `2>&1` ajouté.
 
+### 28. FS01 sans disque de données : partages dans C:\Partages (code prêt, à lancer par l'utilisateur)
+- Pour simplifier : le disque `D:` obligeait à déplacer les lecteurs de CD de l'installation (`Y:`, `Z:`) pour libérer la lettre. Le sujet n'impose pas de disque séparé.
+- `2-lab` : option `data_disk` retirée du module `windows_vm` et de `fs01.tf`. `tofu plan` : FS01 modifié sur place (pas recréé), `fs01-data.qcow2` détruit ; s'y ajoute le remplacement de la touche au démarrage de CLIENT01 (entrée 26).
+- Rôle `fs01` : tâches des lecteurs de CD et du disque retirées, `verify.yml` ne contrôle plus de disque. `shares_root: C:\Partages` ; le rôle `file_shares` coupe l'héritage depuis `C:` (même raison qu'avant : « Utilisateurs » en lecture à la racine).
+- La saturation du disque par un partage est couverte par les quotas FSRM (à faire, mission 5).
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).
@@ -240,7 +246,7 @@
 - Mettre à jour la note *Labo chez OVH avec Proxmox et Terraform* : elle décrit encore Proxmox et Packer, et le dépôt d'infra.
 - Ansible sur ADMIN01 : cloud-init doit installer Ansible et cloner ce dépôt.
 - SIEM01 : relancer `ansible-playbook siem01.yml` (route vers les zones, syslog de pfSense). Le rôle `wazuh` reçoit aussi le syslog de pfSense (F26) : bloc `<remote>` ajouté à `ossec.conf` (514/udp, seule `10.50.20.1` acceptée), vérifié par `verify.yml` ; écrit mais pas encore lancé.
-- Partages : `ansible-playbook file_shares.yml` depuis ADMIN01, après `dc01.yml` et `fs01.yml`.
+- Partages dans `C:\Partages` : `tofu apply` dans `2-lab/`, puis `ansible-playbook file_shares.yml` depuis ADMIN01.
 - Agents Wazuh, dans l'ordre : `siem01.yml`, `ovs.yml`, `pfsense.yml` (alias F18), puis `wazuh_agents.yml --limit admin01,ovs` (Mac ou serveur) et `wazuh_agents.yml --limit windows` (ADMIN01).
 - Tableau de bord : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.
 - Journaux pfSense et tableau de bord « Réseau » : `git pull` sur le serveur, puis `ansible-playbook siem01.yml`.

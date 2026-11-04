@@ -1,7 +1,7 @@
 ---
 # Shares of FS01 (Mission 5): one folder and one share per line of group_vars/windows/shares.yml,
 # rights on both levels (share and NTFS), access-based enumeration, SMB encryption.
-# Needs the DL_ groups on DC01 (role ad_groups) and the data disk D: (role fs01).
+# Needs the DL_ groups on DC01 (role ad_groups) and the file server role (role fs01).
 
 # --- SMB server -------------------------------------------------------------------------
 
@@ -36,8 +36,8 @@
     - Administrators
     - SYSTEM
 
-# The root of D: gives Users read access and CREATOR OWNER full control: not in the shares
-- name: Cut inheritance from the root of the disk
+# The root of C: gives Users read access and CREATOR OWNER full control: not in the shares
+- name: Cut inheritance from the root of C
   ansible.windows.win_acl_inheritance:
     path: "{{ shares_root }}"
     state: absent

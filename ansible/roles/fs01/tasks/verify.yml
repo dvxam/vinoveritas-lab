@@ -6,25 +6,20 @@
     script: |
       $Ansible.Changed = $false
       $cs = Get-CimInstance Win32_ComputerSystem
-      $vol = Get-Volume -DriveLetter '{{ fs01_data_letter }}' -ErrorAction SilentlyContinue
       [pscustomobject]@{
         domain     = $cs.Domain
         member     = $cs.PartOfDomain
         fileserver = (Get-WindowsFeature FS-FileServer).Installed
-        data_fs    = $vol.FileSystem
-        data_label = $vol.FileSystemLabel
         smb        = [bool](Get-NetTCPConnection -LocalPort 445 -State Listen -ErrorAction SilentlyContinue)
       }
   register: fs01_state
 
-- name: FS01 is a member of the domain, file server, with its data disk
+- name: FS01 is a member of the domain and a file server
   ansible.builtin.assert:
     that:
       - fs01_state.output[0].member
       - fs01_state.output[0].domain == fs01_domain
       - fs01_state.output[0].fileserver
-      - fs01_state.output[0].data_fs == 'NTFS'
-      - fs01_state.output[0].data_label == fs01_data_label
       - fs01_state.output[0].smb
     fail_msg: "État inattendu : {{ fs01_state.output[0] }}"
-    success_msg: "Membre de {{ fs01_domain }}, rôle serveur de fichiers, {{ fs01_data_letter }}: en NTFS, SMB à l'écoute"
+    success_msg: "Membre de {{ fs01_domain }}, rôle serveur de fichiers, SMB à l'écoute"
