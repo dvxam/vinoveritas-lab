@@ -3,14 +3,16 @@
   pfSense sends no hostname: "<134>Nov  1 19:39:58 filterlog[78906]: 4,,,1000000103,em1.20,match,block,in,4,..."
   Wazuh then takes "filterlog[78906]:" for the hostname, and its own pfSense decoder (program_name
   filterlog) never matches. This one reads the message itself. IPv4 only (the lab has no IPv6).
+  The "filterlog[pid]: " header stays in the message the decoders see (no program name was found):
+  the expressions accept it, anchored at "^" alone they never matched a real line.
   Fields: rule number, interface, action (block/pass), direction, protocol, source, destination, ports.
 -->
 <decoder name="vinoveritas-pfsense">
-  <prematch type="pcre2">^\d+,[^,]*,[^,]*,\d+,[^,]+,match,(?:block|pass),(?:in|out),4,</prematch>
+  <prematch type="pcre2">(?:^|filterlog\[\d+\]: )\d+,[^,]*,[^,]*,\d+,[^,]+,match,(?:block|pass),(?:in|out),4,</prematch>
 </decoder>
 
 <decoder name="vinoveritas-pfsense-fields">
   <parent>vinoveritas-pfsense</parent>
-  <regex type="pcre2">^\d+,[^,]*,[^,]*,(\d+),([^,]+),match,(block|pass),(in|out),4,(?:[^,]*,){7}([^,]+),\d+,([^,]+),([^,]+)(?:,(\d+),(\d+))?</regex>
+  <regex type="pcre2">(?:^|filterlog\[\d+\]: )\d+,[^,]*,[^,]*,(\d+),([^,]+),match,(block|pass),(in|out),4,(?:[^,]*,){7}([^,]+),\d+,([^,]+),([^,]+)(?:,(\d+),(\d+))?</regex>
   <order>id,interface,action,direction,protocol,srcip,dstip,srcport,dstport</order>
 </decoder>

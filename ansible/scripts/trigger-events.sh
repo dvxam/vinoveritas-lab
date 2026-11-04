@@ -22,10 +22,24 @@ SCENARIOS=("$@")
 
 say() { printf '\n== %s\n' "$*"; }
 
-# WinRM request with NTLM: a wrong password is a failed network logon (4625) on the target
-winrm_logon() { # host user password
-  curl -sk -o /dev/null -w '%{http_code}' --max-time 10 --ntlm -u "$2:$3" \
-    -H 'Content-Type: application/soap+xml;charset=UTF-8' -d '<x/>' "https://$1:5986/wsman" || true
+# WinRM logon with NTLM, through pywinrm (as Ansible does): a wrong password is a failed network
+# logon (4625) on the target. Not curl --ntlm: it sends "Authorization: NTLM", WinRM only offers
+# Negotiate and Kerberos and answers 401 before checking anything, so Windows logs nothing.
+winrm_logon() { # host user password -> ok | refusé | erreur
+  python3 - "$@" <<'PY' 2>/dev/null || echo erreur
+import sys, warnings
+import winrm
+from winrm.exceptions import InvalidCredentialsError
+warnings.filterwarnings("ignore")
+host, user, password = sys.argv[1:4]
+session = winrm.Session(f"https://{host}:5986/wsman", auth=(user, password), transport="ntlm",
+                        server_cert_validation="ignore", operation_timeout_sec=10, read_timeout_sec=15)
+try:
+    session.run_cmd("hostname")
+    print("ok")
+except InvalidCredentialsError:
+    print("refusé")
+PY
 }
 
 # TCP connection attempt, quiet: the result does not matter, pfSense logs the block
@@ -43,7 +57,7 @@ brute() {
   # A real account (password spraying) and accounts that do not exist
   for user in claire.martin nicolas.roux helene.garnier administrateur test admin; do
     for host in $DC01 $FS01; do
-      printf '%s@%s : HTTP %s\n' "$user" "$host" "$(winrm_logon "$host" "VINOVERITAS\\$user" 'Mauvais-mot-de-passe-1')"
+      printf '%s@%s : %s\n' "$user" "$host" "$(winrm_logon "$host" "VINOVERITAS\\$user" 'Mauvais-mot-de-passe-1')"
     done
   done
 }
@@ -62,7 +76,7 @@ ssh_failures() {
 
 admin_logon() {
   say "Connexion d'Administrator sur DC01 depuis ADMIN01 (attendu : seulement d'ici)"
-  printf 'Administrator@%s : HTTP %s\n' "$DC01" "$(winrm_logon $DC01 'VINOVERITAS\Administrator' "$(admin_password)")"
+  printf 'Administrator@%s : %s\n' "$DC01" "$(winrm_logon $DC01 'VINOVERITAS\Administrator' "$(admin_password)")"
 }
 
 ad_changes() {

@@ -221,6 +221,12 @@
 - `tofu apply` lancé par l'utilisateur, déplacements enregistrés dans l'état : `moved.tf` supprimé, plan vide ensuite.
 - Correction au passage : la touche au démarrage de CLIENT01 se déclenchait sur l'`id` de la VM, le numéro d'exécution, qui change à chaque démarrage ; elle se déclenche maintenant sur son `uuid` (un dernier remplacement au prochain `apply`, sans effet sur Windows déjà installé).
 
+### 27. trigger-events.sh : alertes manquantes (corrigé, à relancer par l'utilisateur)
+- Premier lancement (4 novembre) : `ssh`, `admin` et `ad` arrivent dans Wazuh ; rien pour `brute`, `blocked` et `scan`.
+- `brute` : `curl --ntlm` envoie `Authorization: NTLM`, WinRM ne propose que `Negotiate` et `Kerberos` et répond 401 sans rien vérifier : aucun 4625 sur DC01 (audit des échecs pourtant actif). Le script passe par pywinrm (`transport=ntlm`, comme Ansible) : 4625 vérifié dans Wazuh (règle 60122). Le 4625 n'a pas de champ `ipAddress` (connexion NTLM par HTTP), seulement `workstationName` (`ADMIN01`).
+- `blocked`, `scan` : le décodeur `vinoveritas-pfsense` n'a jamais reconnu une vraie ligne : sans nom de programme trouvé, l'en-tête `filterlog[pid]: ` reste dans le message lu par les décodeurs, et l'expression était ancrée en `^`. Même la ligne de `verify.yml` échouait. Expressions corrigées (`(?:^|filterlog\[\d+\]: )`), testées avec `wazuh-logtest` sur SIEM01 (décodeur temporaire, retiré ensuite).
+- `verify.yml` ne pouvait pas voir ce défaut : `wazuh-logtest` écrit son résultat sur stderr, le contrôle lisait stdout (vide). `2>&1` ajouté.
+
 ## À faire
 - FS01 : après `dc01.yml`, `tofu apply` pour créer FS01, attendre la fin de l'installation, puis rsync et `ansible-playbook fs01.yml` depuis ADMIN01.
 - DC01 : quand Windows a fini de s'installer, copier `ansible/` sur ADMIN01 (rsync) et y lancer `ansible-playbook dc01.yml` (commandes en tête de `dc01.yml`).
